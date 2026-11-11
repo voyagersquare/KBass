@@ -1,4 +1,4 @@
-# KBass 0.2.0 — Independent Audio
+# KBass 0.2.1 — Independent Audio
 
 **Windows 10/11 x64 VST3 bass instrument.** Dva audio oscilatora s izborom
 **SAW / SQUARE / SINE**, dva zasebna ADSR-a i sučelje nadahnuto priloženom
@@ -11,11 +11,16 @@ u donjoj traci te **SAVE** za spremanje vlastitih zvukova. KB pločica i sitni
 natpis dolje lijevo su uklonjeni. Metal ima umjerenu patinu i fine ogrebotine.
 Cutoff je precizniji pri povlačenju i ima dodatno zaglađivanje u audio engineu.
 
+Verzija **0.2.1** pojačava istrošenost kućišta: oguljeni rubovi s vidljivim
+metalom, dublje ogrebotine, tamne masne mrlje, izlizani rubovi potenciometara
+i tragovi korištenja na kromu i drvenim stranicama. Natpisi i oznake kontrola
+ostaju čitljivi.
+
 ## Testni VST3 ZIP
 
 Gotove datoteke nakon uspješnog Windows builda nalaze se u
 [Releases](https://github.com/voyagersquare/KBass/releases).
-Preuzmi **KBass-0.2.0-Windows-x64-VST3.zip**. Ova testna verzija isporučuje
+Preuzmi **KBass-0.2.1-Windows-x64-VST3.zip**. Ova testna verzija isporučuje
 se bez novog Windows instalera. Zatvori DAW i iz ZIP-a kopiraj cijelu mapu
 `KBass.vst3` u `C:\Program Files\Common Files\VST3`, zamjenjujući prethodni KBass.
 U Abletonu uključi **Use VST3 Plug-In System Folders**, odaberi **Rescan**,

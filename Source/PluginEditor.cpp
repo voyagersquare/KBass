@@ -90,10 +90,19 @@ HardwareLook::HardwareLook():chrome(juce::Image::ARGB,256,256,true) {
     juce::Graphics scuffs(chrome);
     juce::Path face; face.addEllipse(2,2,252,252); scuffs.reduceClipRegion(face);
     juce::Random wear(0x4348524f);
-    for(int i=0;i<32;++i) {
+    for(int i=0;i<110;++i) {
         const float x=25+wear.nextFloat()*200,y=25+wear.nextFloat()*200;
-        scuffs.setColour(juce::Colours::black.withAlpha(.025f+wear.nextFloat()*.045f));
-        scuffs.drawLine(x,y,x+3+wear.nextFloat()*20,y-1+wear.nextFloat()*2,.7f);
+        const float length=8+wear.nextFloat()*48;
+        scuffs.setColour(juce::Colours::black.withAlpha(.07f+wear.nextFloat()*.13f));
+        scuffs.drawLine(x,y,x+length,y-3+wear.nextFloat()*6,1.4f+wear.nextFloat());
+        scuffs.setColour(juce::Colour(0xffe1dfce).withAlpha(.055f+wear.nextFloat()*.06f));
+        scuffs.drawLine(x,y+1.4f,x+length,y+1.1f,.9f);
+    }
+    for(int i=0;i<5;++i) {
+        const float x=40+wear.nextFloat()*175,y=40+wear.nextFloat()*175,radius=15+wear.nextFloat()*45;
+        scuffs.setGradientFill(juce::ColourGradient(juce::Colour(0xff292419).withAlpha(.07f),x,y,
+            juce::Colours::transparentBlack,x+radius,y,true));
+        scuffs.fillEllipse(x-radius,y-radius,radius*2,radius*2);
     }
 }
 void HardwareLook::drawRotarySlider(juce::Graphics& g,int x,int y,int width,int height,float pos,float,float,juce::Slider& slider) {
@@ -131,8 +140,18 @@ void HardwareLook::drawRotarySlider(juce::Graphics& g,int x,int y,int width,int 
             juce::Colours::black,c.x+r*.3f,c.y+r,false));
         g.fillEllipse(body.reduced(6));
         g.setColour(juce::Colours::black); g.fillEllipse(body.reduced(10));
+        // Scuffed edges on the black coating, varied by control rather than
+        // flickering or changing position when the knob is redrawn.
+        juce::Random rimWear(juce::int64(slider.getName().hashCode()));
+        for(int n=0;n<11;++n) {
+            const float a=rimWear.nextFloat()*float(kbass::pi*2),rad=r-3-rimWear.nextFloat()*4;
+            const float px=c.x+std::sin(a)*rad,py=c.y-std::cos(a)*rad;
+            g.setColour(juce::Colour(0xff9b9d8b).withAlpha(.13f+rimWear.nextFloat()*.2f));
+            g.drawLine(px,py,px+1+rimWear.nextFloat()*2.5f,py-rimWear.nextFloat()*1.8f,.75f);
+        }
     }
     const float capRadius=selector ? r*.84f : r*(large ? .57f : .53f);
+    g.setOpacity(1.0f);
     g.drawImage(chrome,juce::Rectangle<float>(c.x-capRadius,c.y-capRadius,capRadius*2,capRadius*2));
     g.setColour(juce::Colour(0xff0b0d0c)); g.drawEllipse(c.x-capRadius,c.y-capRadius,capRadius*2,capRadius*2,1.1f);
     const float angle=selector ? 5.42f-pos*1.42f : float(kbass::pi*1.25+pos*kbass::pi*1.5);
@@ -300,34 +319,93 @@ void KBassEditor::makeTexture() {
             const double nx=(x-554)/540.0,ny=(y-390)/430.0;
             const double vignette=15*(nx*nx+ny*ny);
             const double brushed=1.1*std::sin(x*.91)+.6*std::sin(x*2.7);
-            const double patina=-3.0-6.5*std::sin(x*.013+std::sin(y*.009))*std::sin(y*.016-x*.004)
-                -4.0*std::cos(x*.031-y*.012+std::sin(y*.019));
-            const int shade=juce::jlimit(30,112,int(89-vignette+brushed+patina+random.nextInt(10)-5));
+            const double patina=-4.0-11.0*std::sin(x*.013+std::sin(y*.009))*std::sin(y*.016-x*.004)
+                -7.0*std::cos(x*.031-y*.012+std::sin(y*.019));
+            const int shade=juce::jlimit(30,112,int(86-vignette+brushed+patina+random.nextInt(14)-7));
             texture.setPixelAt(x,y,juce::Colour::fromRGB(juce::uint8(shade),juce::uint8(shade+2),juce::uint8(shade)));
         }
     }
     juce::Graphics wear(texture);
     wear.reduceClipRegion(60,7,988,763);
     juce::Random marks(0x504154494e41);
-    for(int i=0;i<13;++i) {
+    for(int i=0;i<29;++i) {
         const float x=80+marks.nextFloat()*920,y=24+marks.nextFloat()*700;
         const float radius=35+marks.nextFloat()*100;
-        wear.setGradientFill(juce::ColourGradient(juce::Colours::black.withAlpha(.065f+marks.nextFloat()*.065f),x,y,
+        const auto stain=i%3==0 ? juce::Colour(0xff2a2117) : juce::Colours::black;
+        wear.setGradientFill(juce::ColourGradient(stain.withAlpha(.13f+marks.nextFloat()*.13f),x,y,
             juce::Colours::transparentBlack,x+radius,y,true));
         wear.fillEllipse(x-radius,y-radius*.55f,radius*2,radius*1.1f);
     }
-    for(int i=0;i<190;++i) {
+    for(int i=0;i<420;++i) {
         const float x=65+marks.nextFloat()*970,y=12+marks.nextFloat()*746;
-        const float length=(i<14 ? 30.0f : 2.0f)+marks.nextFloat()*(i<14 ? 45.0f : 21.0f);
-        const float rise=(marks.nextFloat()-.5f)*5;
-        wear.setColour(juce::Colours::black.withAlpha(.12f+marks.nextFloat()*.09f));
-        wear.drawLine(x,y,x+length,y+rise,.65f);
-        wear.setColour(juce::Colour(0xffd1d2bf).withAlpha(.065f+marks.nextFloat()*.065f));
-        wear.drawLine(x,y+.8f,x+length,y+rise+.8f,.45f);
+        const float length=(i<36 ? 28.0f : 3.0f)+marks.nextFloat()*(i<36 ? 74.0f : 29.0f);
+        const float rise=(marks.nextFloat()-.5f)*13;
+        wear.setColour(juce::Colours::black.withAlpha(.20f+marks.nextFloat()*.22f));
+        wear.drawLine(x,y,x+length,y+rise,.65f+marks.nextFloat()*.55f);
+        wear.setColour(juce::Colour(0xffc9c9b5).withAlpha(.12f+marks.nextFloat()*.20f));
+        wear.drawLine(x,y+.9f,x+length,y+rise+.9f,.55f);
     }
-    for(int i=0;i<230;++i) {
-        wear.setColour(juce::Colours::black.withAlpha(.035f+marks.nextFloat()*.08f));
-        wear.fillEllipse(65+marks.nextFloat()*970,10+marks.nextFloat()*748,1+marks.nextFloat()*2.2f,.7f+marks.nextFloat()*1.3f);
+    for(int i=0;i<650;++i) {
+        wear.setColour(juce::Colours::black.withAlpha(.08f+marks.nextFloat()*.18f));
+        wear.fillEllipse(65+marks.nextFloat()*970,10+marks.nextFloat()*748,1+marks.nextFloat()*3.5f,.7f+marks.nextFloat()*2);
+    }
+    const auto chip=[&](float x,float y,float width,float height,float opacity) {
+        juce::Path patch;
+        patch.startNewSubPath(x-width*.5f,y-height*.2f);
+        patch.lineTo(x-width*.28f,y-height*.54f);
+        patch.lineTo(x+width*.13f,y-height*.35f);
+        patch.lineTo(x+width*.46f,y-height*.48f);
+        patch.lineTo(x+width*.53f,y+height*.13f);
+        patch.lineTo(x+width*.22f,y+height*.49f);
+        patch.lineTo(x-width*.1f,y+height*.3f);
+        patch.lineTo(x-width*.49f,y+height*.47f);
+        patch.closeSubPath();
+        patch.applyTransform(juce::AffineTransform::rotation((marks.nextFloat()-.5f)*.5f,x,y));
+        wear.setColour(juce::Colours::black.withAlpha(opacity*.7f));
+        wear.strokePath(patch,juce::PathStrokeType(1.7f));
+        wear.setColour(juce::Colour(0xffa6a692).withAlpha(opacity)); wear.fillPath(patch);
+        wear.setColour(juce::Colour(0xffdfddc5).withAlpha(opacity*.45f));
+        wear.drawLine(x-width*.28f,y-height*.54f,x+width*.13f,y-height*.35f,.6f);
+    };
+    // Most exposed metal lives on case edges, seams and the areas rubbed by
+    // hands. The lettering is painted afterwards and remains legible.
+    for(int i=0;i<290;++i) {
+        const int edge=marks.nextInt(6);
+        float x=0,y=0;
+        if(edge<2) {
+            x=edge==0 ? 63+marks.nextFloat()*28 : 1019+marks.nextFloat()*25;
+            y=16+marks.nextFloat()*728;
+        } else {
+            x=75+marks.nextFloat()*950;
+            const float band=edge==2 ? 16.0f : edge==3 ? 737.0f : edge==4 ? 241.0f : 284.0f;
+            y=band+(marks.nextFloat()-.5f)*17;
+        }
+        chip(x,y,2+marks.nextFloat()*13,1+marks.nextFloat()*4,.24f+marks.nextFloat()*.38f);
+    }
+    const std::array<juce::Point<float>,4> rubbedAreas{{{208,606},{900,606},{965,110},{400,608}}};
+    for(const auto centre:rubbedAreas) {
+        const float radius=centre.y>550 && (centre.x<250 || centre.x>850) ? 83.0f : 57.0f;
+        for(int i=0;i<34;++i) {
+            const float angle=float(kbass::pi*1.15)+marks.nextFloat()*float(kbass::pi*1.7);
+            const float distance=radius+marks.nextFloat()*12;
+            chip(centre.x+std::sin(angle)*distance,centre.y-std::cos(angle)*distance,
+                1.5f+marks.nextFloat()*5,1+marks.nextFloat()*2.2f,.16f+marks.nextFloat()*.22f);
+        }
+    }
+    for(int group=0;group<19;++group) {
+        const float cx=100+marks.nextFloat()*865,cy=38+marks.nextFloat()*673;
+        for(int n=0;n<12;++n) {
+            const float x=cx+(marks.nextFloat()-.5f)*43,y=cy+(marks.nextFloat()-.5f)*18;
+            const float length=8+marks.nextFloat()*35;
+            wear.setColour(juce::Colour(0xffc7c6b0).withAlpha(.045f+marks.nextFloat()*.11f));
+            wear.drawLine(x,y,x+length,y-2-marks.nextFloat()*4,.6f);
+        }
+    }
+    juce::Graphics woodWear(texture);
+    for(int side=0;side<2;++side) for(int i=0;i<85;++i) {
+        const float x=(side==0 ? 5.0f : 1064.0f)+marks.nextFloat()*36,y=12+marks.nextFloat()*744;
+        woodWear.setColour(juce::Colour(0xffb0956b).withAlpha(.10f+marks.nextFloat()*.18f));
+        woodWear.drawLine(x,y,x+(marks.nextFloat()-.5f)*2,y+2+marks.nextFloat()*24,.5f+marks.nextFloat()*.5f);
     }
 }
 void KBassEditor::drawPanel(juce::Graphics& g,juce::Rectangle<float> r,const juce::String& title,float labelX) {

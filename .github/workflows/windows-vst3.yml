@@ -62,7 +62,7 @@ jobs:
           $path = '.\build\windows-x64\KBass_artefacts\Release\VST3\KBass.vst3\Contents\Resources\moduleinfo.json'
           $raw = Get-Content $path -Raw
           $metadata = [regex]::Replace($raw, ',\s*([}\]])', '$1') | ConvertFrom-Json
-          if ($metadata.Name -ne 'KBass' -or $metadata.Version -ne '0.2.0') { throw 'Unexpected plugin name or version.' }
+          if ($metadata.Name -ne 'KBass' -or $metadata.Version -ne '0.2.1') { throw 'Unexpected plugin name or version.' }
           if ($metadata.'Factory Info'.Vendor -ne 'Independent Audio') { throw 'Wrong factory manufacturer.' }
           foreach ($class in $metadata.Classes) {
             if ($class.Vendor -ne 'Independent Audio') { throw 'Wrong class manufacturer.' }
@@ -70,7 +70,7 @@ jobs:
           $expected = @('ABCDEF019182FAEB567953714B427373','ABCDEF011234ABCD567953714B427373','ABCDEF01C0DEF00D567953714B427373')
           if (Compare-Object @($expected | Sort-Object) @($metadata.Classes.CID | Sort-Object)) { throw 'Existing VST3 class IDs have changed.' }
           New-Item -ItemType Directory -Force 'build\packages' | Out-Null
-          @{ manufacturer='Independent Audio'; classIDsPreserved=$true; installerBuilt=$false; installerExecuted=$false; version='0.2.0' } | ConvertTo-Json | Set-Content 'build\packages\manufacturer-test-results.json' -Encoding UTF8
+          @{ manufacturer='Independent Audio'; classIDsPreserved=$true; installerBuilt=$false; installerExecuted=$false; version='0.2.1' } | ConvertTo-Json | Set-Content 'build\packages\manufacturer-test-results.json' -Encoding UTF8
       - name: Package the test VST3 and matching source without an installer
         shell: powershell
         run: |
@@ -124,14 +124,14 @@ jobs:
           info=json.loads((root/'release-info.json').read_text(encoding='utf-8-sig'))
           assert info['sourceCommit']==os.environ['GITHUB_SHA']
           assert info['format']=='VST3' and info['standalone'] is False
-          assert info['version']=='0.2.0' and info['manufacturer']=='Independent Audio'
+          assert info['version']=='0.2.1' and info['manufacturer']=='Independent Audio'
           assert info['installerBuilt'] is False
           assert not list(root.glob('*.exe'))
           for line in (root/'SHA256SUMS.txt').read_text().splitlines():
               digest,name=line.split('  ',1)
               assert Path(name).name==name
               assert hashlib.sha256((root/name).read_bytes()).hexdigest()==digest
-          with zipfile.ZipFile(root/'KBass-0.2.0-Windows-x64-VST3.zip') as z:
+          with zipfile.ZipFile(root/'KBass-0.2.1-Windows-x64-VST3.zip') as z:
               data=z.read('KBass.vst3/Contents/x86_64-win/KBass.vst3')
               assert data[:2]==b'MZ'
               pe=struct.unpack_from('<I',data,0x3c)[0]
@@ -141,13 +141,13 @@ jobs:
           assert checks['installerBuilt'] is False and checks['installerExecuted'] is False
           PY
           cat > notes.md <<'EOF'
-          KBass 0.2.0 - Independent Audio - Windows x64 VST3 test.
+          KBass 0.2.1 - Independent Audio - Windows x64 VST3 test.
 
-          Odvojeni FACTORY PRESETS i USER PRESETS izbornici u donjoj traci, SAVE za trajno spremanje vlastitih zvukova, uklonjena KB pločica i sitni natpis. Sučelje ima umjerenu patinu i fine ogrebotine. Cutoff ima preciznije pomicanje, deset puta finiji Shift način i dvostupanjsko zaglađivanje; zaglađeni su i ostali kontinuirani parametri. Proizvođač Independent Audio i postojeći VST3 identifikatori zadržani su.
+          Izraženije prljavo, izgrebano i oguljeno sučelje: istrošeni rubovi s vidljivim metalom, dublje ogrebotine, masne mrlje te tragovi korištenja na potenciometrima, kromu i drvu. Factory i user izbornici, SAVE, glatki Cutoff i postojeći VST3 identifikatori ostaju u ovoj testnoj verziji pod Independent Audio.
 
-          Preuzmi KBass-0.2.0-Windows-x64-VST3.zip. Zatvori DAW i zamijeni cijelu mapu KBass.vst3 u C:\Program Files\Common Files\VST3. Pokreni Ableton, napravi Rescan i potraži Independent Audio > KBass. Ako je ostao stari naziv proizvođača, drži Alt i klikni Rescan.
+          Preuzmi KBass-0.2.1-Windows-x64-VST3.zip. Zatvori DAW i zamijeni cijelu mapu KBass.vst3 u C:\Program Files\Common Files\VST3. Pokreni Ableton, napravi Rescan i potraži Independent Audio > KBass. Ako je ostao stari naziv proizvođača, drži Alt i klikni Rescan.
 
           Ovo je testni VST3 ZIP bez novog instalera. Windows build, DSP/MIDI/state/UI testovi, trajno spremanje i ponovno učitavanje korisničkih preseta, Save dijalog, Cutoff interakcije, pluginval level 5, proizvođač i očuvani VST3 identifikatori provjereni su u CI-u. Izvorni kod, licence i SHA-256 priloženi su uz testni paket. KBass/JUCE distribucija: AGPLv3.
           EOF
-          tag="v0.2.0-test.${GITHUB_RUN_NUMBER}"
-          gh release create "$tag" --target "$GITHUB_SHA" --prerelease --latest=false --title 'KBass 0.2.0 - Independent Audio - VST3 test' --notes-file notes.md packages/*
+          tag="v0.2.1-test.${GITHUB_RUN_NUMBER}"
+          gh release create "$tag" --target "$GITHUB_SHA" --prerelease --latest=false --title 'KBass 0.2.1 - Independent Audio - VST3 test' --notes-file notes.md packages/*
