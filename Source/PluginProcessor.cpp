@@ -2,7 +2,8 @@
 #include "PluginEditor.h"
 
 namespace {
-struct Preset { const char* name; std::array<float,23> values; };
+// Appended saturation controls are zero-initialised for the original factory sounds.
+struct Preset { const char* name; std::array<float,25> values; };
 constexpr std::array<Preset,6> presets {{
     {"01  Classic", {0,2,1,4,.06f,0,.35f, .005f,.25f,.75f,.16f, .002f,.22f,.05f,.15f, 0,1,4,650,.22f,3,0,.7f}},
     {"02  Sine Sub",{2,2,1,0,.09f,0,.15f, .008f,.3f,.95f,.2f, .002f,.2f,.5f,.2f, 0,1,3,400,.05f,0,0,.85f}},
@@ -48,6 +49,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout KBassProcessor::createLayout
     add("filterEnv","Filter envelope amount",0,6,3,3,"oct");
     add("filterLfo","Filter LFO amount",0,4,0,1,"oct");
     add("volume","Output volume",0,1,.7f,.5f,"");
+    add("saturation","Saturation amount",0,1,0,.5f,"");
+    choice("saturationType","Saturation type",{"Tube","Tape","Transistor"},0);
     return layout;
 }
 KBassProcessor::KBassProcessor(juce::File presetFolder)
@@ -55,16 +58,18 @@ KBassProcessor::KBassProcessor(juce::File presetFolder)
       parameters(*this,nullptr,"KBassState",createLayout()),
       userPresetFolder(presetFolder==juce::File{} ? defaultUserPresetFolder() : std::move(presetFolder)) {
     for(size_t i=0;i<raw.size();++i) raw[i]=parameters.getRawParameterValue(parameterIds[i]);
+    setLatencySamples(kbass::Saturation::latencySamples);
 }
 kbass::Parameters KBassProcessor::readParameters() const noexcept {
-    std::array<float,23> v{};
+    std::array<float,25> v{};
     for(size_t i=0;i<v.size();++i) v[i]=raw[i]->load(std::memory_order_relaxed);
     kbass::Parameters p;
     p.wave1=int(v[0]); p.wave2=int(v[1]); p.octave=int(v[2]); p.detune=v[3];
     p.glide=v[4]; p.pitchLfo=v[5]; p.mix=v[6];
     p.amp={v[7],v[8],v[9],v[10]}; p.filter={v[11],v[12],v[13],v[14]};
     p.lfoWave=int(v[16]); p.lfoSpeed=v[17]; p.cutoff=v[18]; p.resonance=v[19];
-    p.filterEnv=v[20]; p.filterLfo=v[21]; p.volume=v[22]; return p;
+    p.filterEnv=v[20]; p.filterLfo=v[21]; p.volume=v[22];
+    p.saturation=v[23]; p.saturationType=int(v[24]); return p;
 }
 void KBassProcessor::prepareToPlay(double rate,int) {
     engine.setParameters(readParameters()); engine.prepare(rate); keyboard.reset(); peak=0;
@@ -117,25 +122,40 @@ void KBassProcessor::setCurrentProgram(int index) {
     currentProgram=index; setUserPresetName({}); resetRequested=true;
 }
 void KBassProcessor::getStateInformation(juce::MemoryBlock& data) {
-    auto state=parameters.copyState(); state.setProperty("schemaVersion",1,nullptr);
+    auto state=parameters.copyState(); state.setProperty("schemaVersion",2,nullptr);
     state.setProperty("program",currentProgram.load(),nullptr);
     state.setProperty("userPresetName",getCurrentUserPresetName(),nullptr);
     if(const auto xml=state.createXml()) copyXmlToBinary(*xml,data);
+}
+bool KBassProcessor::validateAndMigrateState(juce::ValueTree& state) const {
+    if(!state.hasType("KBassState")) return false;
+    const int schema=int(state.getProperty("schemaVersion",0));
+    if(schema==1) {
+        if(state.getNumChildren()!=23) return false;
+        for(const auto* id:{"saturation","saturationType"}) {
+            juce::ValueTree child("PARAM"); child.setProperty("id",id,nullptr);
+            child.setProperty("value",0.0f,nullptr); state.addChild(child,-1,nullptr);
+        }
+        state.setProperty("schemaVersion",2,nullptr);
+    } else if(schema!=2) return false;
+    if(state.getNumChildren()!=int(parameterIds.size())) return false;
+    for(const auto* id:parameterIds) {
+        const auto child=state.getChildWithProperty("id",id);
+        if(!child.isValid()) return false;
+        const auto number=juce::JSON::fromString(child.getProperty("value").toString());
+        if(!(number.isInt() || number.isInt64() || number.isDouble())) return false;
+        const double precise=double(number); const float value=float(precise);
+        const auto* parameter=parameters.getParameter(id); const auto range=parameter->getNormalisableRange();
+        if(!std::isfinite(precise) || !std::isfinite(value) || value<range.start || value>range.end) return false;
+        if(dynamic_cast<const juce::AudioParameterChoice*>(parameter) && std::abs(precise-std::floor(precise))>0) return false;
+    }
+    return true;
 }
 void KBassProcessor::setStateInformation(const void* data,int size) {
     if(const auto xml=getXmlFromBinary(data,size)) {
         if(!xml->hasTagName("KBassState")) return;
         auto state=juce::ValueTree::fromXml(*xml);
-        if(!state.isValid() || int(state.getProperty("schemaVersion",0))!=1) return;
-        // Validate the entire tree before allowing any value into the audio engine.
-        for(const auto* id:parameterIds) {
-            const auto child=state.getChildWithProperty("id",id);
-            if(!child.isValid()) return;
-            const float v=float(child.getProperty("value"));
-            auto* p=parameters.getParameter(id);
-            const auto range=p->getNormalisableRange();
-            if(!std::isfinite(v) || v<range.start || v>range.end) return;
-        }
+        if(!validateAndMigrateState(state)) return;
         parameters.replaceState(state);
         currentProgram=juce::jlimit(0,5,int(state.getProperty("program",0)));
         const auto name=state.getProperty("userPresetName").toString();

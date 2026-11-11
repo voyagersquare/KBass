@@ -217,7 +217,9 @@ KBassEditor::KBassEditor(KBassProcessor& p):AudioProcessorEditor(p),processor(p)
     addDial("resonance","RESONANCE","Filter resonance");
     addDial("filterEnv","FILTER ENV","Filter envelope depth, 0 to 6 octaves");
     addDial("filterLfo","FILTER LFO","Filter LFO depth, 0 to 4 octaves");
-    addDial("volume","VOLUME","Master output level; fully left mutes the instrument",false,true);
+    addDial("volume","VOLUME","Master output level after saturation; fully left mutes the instrument");
+    addDial("saturation","SATURATION","Drive and blend: 0% bypass, 100% full character. Volume adjusts the final level.");
+    addDial("saturationType","SATURATION TYPE","Saturation character: TUBE / TAPE / TRANSISTOR",true);
     for(size_t i=0;i<envelope.size();++i) {
         configure(envelope[i],this); envelope[i].setName(juce::StringArray{"ATTACK","DECAY","SUSTAIN","RELEASE"}[int(i)]);
         addAndMakeVisible(envelope[i]);
@@ -265,6 +267,10 @@ void KBassEditor::addDial(const char* id,const char* name,const char* help,bool 
     s.getProperties().set("selector",selector); s.getProperties().set("large",large);
     addAndMakeVisible(s);
     dial.attachment=std::make_unique<Attachment>(processor.parameters,id,s);
+    if(dial.id=="saturation") {
+        s.textFromValueFunction=[](double value) { return juce::String(value*100,1)+" %"; };
+        s.valueFromTextFunction=[](const juce::String& value) { return value.getDoubleValue()/100; };
+    }
     s.setDoubleClickReturnValue(true,processor.parameters.getParameter(id)->convertFrom0to1(processor.parameters.getParameter(id)->getDefaultValue()));
     if(selector) s.setMouseDragSensitivity(100);
     if(dial.id=="cutoff") {
@@ -382,9 +388,9 @@ void KBassEditor::makeTexture() {
         }
         chip(x,y,2+marks.nextFloat()*13,1+marks.nextFloat()*4,.24f+marks.nextFloat()*.38f);
     }
-    const std::array<juce::Point<float>,4> rubbedAreas{{{208,606},{900,606},{965,110},{400,608}}};
+    const std::array<juce::Point<float>,5> rubbedAreas{{{208,606},{826,628},{986,628},{965,110},{400,608}}};
     for(const auto centre:rubbedAreas) {
-        const float radius=centre.y>550 && (centre.x<250 || centre.x>850) ? 83.0f : 57.0f;
+        const float radius=centre.x<250 ? 83.0f : 57.0f;
         for(int i=0;i<34;++i) {
             const float angle=float(kbass::pi*1.15)+marks.nextFloat()*float(kbass::pi*1.7);
             const float distance=radius+marks.nextFloat()*12;
@@ -457,8 +463,13 @@ void KBassEditor::paint(juce::Graphics& g) {
     text(g,"WAVE",664,431,105,32,23); text(g,"SPEED",777,431,105,32,23);
     text(g,"CUTOFF",134,671,150,34,23); text(g,"RESO",347,671,105,34,23);
     text(g,"ENV",477,671,105,34,23); text(g,"LFO",607,671,105,34,23);
-    text(g,"VOLUME",824,671,154,34,23);
-    for(const auto center:std::array<juce::Point<float>,2>{{{208,606},{900,606}}})
+    text(g,"VOLUME",754,681,144,27,20);
+    text(g,"SATURATION",908,681,140,27,20);
+    text(g,"TUBE",781,492,80,22,14,juce::Justification::centredRight);
+    text(g,"TAPE",781,519,80,22,14,juce::Justification::centredRight);
+    text(g,"TRANSISTOR",770,546,91,22,13,juce::Justification::centredRight);
+    text(g,"SAT TYPE",944,516,104,22,15);
+    for(const auto center:std::array<juce::Point<float>,1>{{{208,606}}})
         for(int n=0;n<=4;++n) {
             const float a=float(kbass::pi*1.25+n*kbass::pi*1.5/4);
             text(g,juce::String(n*3),center.x+std::sin(a)*91-14,center.y-std::cos(a)*91-11-((n==0 || n==4) ? 12.0f : 0.0f),28,23,15);
@@ -486,7 +497,9 @@ void KBassEditor::resized() {
     envelopeTarget.setBounds(581,334,29,61);
     place("lfoWave",681,331,70,70); place("lfoSpeed",780,316,98,98);
     place("cutoff",129,527,158,158); place("resonance",351,559,98,98);
-    place("filterEnv",481,559,98,98); place("filterLfo",611,559,98,98); place("volume",821,527,158,158);
+    place("filterEnv",481,559,98,98); place("filterLfo",611,559,98,98);
+    place("volume",774,576,104,104); place("saturation",934,576,104,104);
+    place("saturationType",871,491,70,70);
     factoryPresets.setBounds(380,741,205,27);
     userPresets.setBounds(596,741,205,27);
     savePreset.setBounds(812,741,68,27);

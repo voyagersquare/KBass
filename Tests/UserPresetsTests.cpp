@@ -31,7 +31,8 @@ int main()
     require(p.getUserPresets().empty() && !folder.file.exists(),"opening an empty library does not create files");
     p.setCurrentProgram(2);
     setValue(p,"cutoff",432); setValue(p,"wave1",2); setValue(p,"wave2",1); setValue(p,"ampAttack",.21f); setValue(p,"filterAttack",.63f);
-    std::array<float,23> saved{};
+    setValue(p,"saturation",.64f); setValue(p,"saturationType",2);
+    std::array<float,parameterIds.size()> saved{};
     for (size_t i=0;i<saved.size();++i) saved[i]=value(p,parameterIds[i]);
     require(p.saveUserPreset("Night Bass").wasOk(),"save user preset");
     require(p.getCurrentUserPresetName()=="Night Bass","saved preset becomes the selected user preset");
@@ -42,6 +43,7 @@ int main()
     setValue(p,"cutoff",1234);
     require(p.saveUserPreset("night bass").failed(),"case-insensitive duplicate requires explicit replacement");
     require(list[0].file.loadFileAsString()==originalBytes,"declining replacement preserves the file");
+    setValue(p,"saturation",0); setValue(p,"saturationType",0);
     require(p.loadUserPreset(list[0].file).wasOk(),"reload saved sound");
     for (size_t i=0;i<saved.size();++i)
         require(std::abs(value(p,parameterIds[i])-saved[i])<.001f,"all parameters return to the saved values");
@@ -49,6 +51,7 @@ int main()
     KBassProcessor restarted(folder.file);
     require(restarted.getUserPresets().size()==1,"user library persists across new plugin instances");
     require(restarted.loadUserPreset(list[0].file).wasOk() && std::abs(value(restarted,"cutoff")-432)<.01f,"new instance restores the saved sound");
+    require(std::abs(value(restarted,"saturation")-.64f)<1e-5 && value(restarted,"saturationType")==2,"new instance recalls saturation amount and type");
     juce::MemoryBlock project;
     restarted.getStateInformation(project);
     PresetFolder otherFolder;
@@ -75,6 +78,20 @@ int main()
     malformed->getFirstChildElement()->getChildByAttribute("id","cutoff")->setAttribute("value","nan");
     require(malformed->writeTo(corrupt),"write invalid-parameter fixture");
     require(p.loadUserPreset(corrupt).failed() && p.getUserPresets().size()==1,"non-finite parameter values are rejected");
+
+    PresetFolder legacyFolder;
+    require(legacyFolder.file.createDirectory().wasOk(),"create legacy library fixture");
+    auto oldPreset=juce::XmlDocument::parse(originalBytes);
+    oldPreset->setAttribute("pluginVersion","0.2.1");
+    auto* oldState=oldPreset->getFirstChildElement(); oldState->setAttribute("schemaVersion",1);
+    oldState->removeChildElement(oldState->getChildByAttribute("id","saturation"),true);
+    oldState->removeChildElement(oldState->getChildByAttribute("id","saturationType"),true);
+    const auto oldFile=legacyFolder.file.getChildFile("old.kbasspreset");
+    require(oldPreset->writeTo(oldFile),"write 0.2.x user preset fixture");
+    KBassProcessor oldReader(legacyFolder.file);
+    setValue(oldReader,"saturation",1); setValue(oldReader,"saturationType",2);
+    require(oldReader.getUserPresets().size()==1 && oldReader.loadUserPreset(oldFile).wasOk(),"legacy user presets remain listed and loadable");
+    require(value(oldReader,"saturation")==0 && value(oldReader,"saturationType")==0 && value(oldReader,"cutoff")==432,"legacy user preset migration bypasses saturation and retains the patch");
 
     // Factory and user selectors are independent controls beside Save.
     std::unique_ptr<juce::AudioProcessorEditor> editor(p.createEditor());

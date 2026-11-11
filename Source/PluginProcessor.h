@@ -2,11 +2,12 @@
 #include <JuceHeader.h>
 #include "SynthEngine.h"
 
-inline constexpr std::array<const char*,23> parameterIds {
+inline constexpr std::array<const char*,25> parameterIds {
     "wave1","wave2","octave","detune","glide","pitchLfo","mix",
     "ampAttack","ampDecay","ampSustain","ampRelease",
     "filterAttack","filterDecay","filterSustain","filterRelease",
-    "envTarget","lfoWave","lfoSpeed","cutoff","resonance","filterEnv","filterLfo","volume"
+    "envTarget","lfoWave","lfoSpeed","cutoff","resonance","filterEnv","filterLfo","volume",
+    "saturation","saturationType"
 };
 
 class KBassProcessor final : public juce::AudioProcessor {
@@ -32,7 +33,7 @@ public:
     bool acceptsMidi() const override { return true; }
     bool producesMidi() const override { return false; }
     bool isMidiEffect() const override { return false; }
-    double getTailLengthSeconds() const override { return 8.0; }
+    double getTailLengthSeconds() const override { return 8.5; }
     int getNumPrograms() override { return 6; }
     int getCurrentProgram() override { return currentProgram.load(); }
     void setCurrentProgram(int) override;
@@ -50,7 +51,8 @@ private:
     static bool isValidUserPresetName(const juce::String&);
     juce::Result readUserPreset(const juce::File&,juce::ValueTree&,juce::String&) const;
     void setUserPresetName(const juce::String&);
-    std::array<std::atomic<float>*,23> raw{};
+    bool validateAndMigrateState(juce::ValueTree&) const;
+    std::array<std::atomic<float>*,25> raw{};
     kbass::SynthEngine engine;
     std::atomic<int> currentProgram{0};
     std::atomic<bool> resetRequested{false};

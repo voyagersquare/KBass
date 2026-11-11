@@ -12,7 +12,7 @@ areas and mono/stereo output. Cutoff interaction checks exercise actual mouse
 and wheel events across the full frequency range, Shift changes during a drag,
 fine wheel adjustment and balanced host automation gestures.
 
-User preset checks cover persistence across new instances, all 23 values,
+User preset checks cover persistence across new instances, all 25 values, including saturation amount and type,
 case-insensitive duplicates, confirmed replacement, corrupt files, non-finite
 values and independent DAW project recall. They exercise both separate menus,
 reselection of the current preset and the Windows Save dialog callback.
@@ -25,11 +25,20 @@ The Linux VST3 passes pluginval 1.0.4 strictness level 5, including state,
 automation, repeated editor opening and audio processing at 44.1/48/96 kHz.
 The Windows workflow also requires pluginval level 5 before packaging.
 
-The 0.2.1 test ZIP is gated by a native MSVC build, DSP, processor and user preset tests,
+The 0.3.0 test ZIP is gated by a native MSVC build, DSP, processor and user preset tests,
 a real native-editor capture, Windows pluginval and PE x64 checks. The compiled
 module must report Independent Audio for every VST3 class, while retaining the
 three existing class IDs. This version does not build or execute an installer.
 Logs and SHA-256 checks accompany the test release.
+
+Dedicated saturation checks cover bit-exact delayed dry bypass, FIR/reset silence,
+bass RMS boost, Tube even harmonics, predominantly odd Tape/Transistor harmonics,
+distinct model waveforms, Tape high-frequency attenuation, reduced folded harmonics
+with 4x processing, type/amount transition onset and stability at 8–384 kHz.
+Processor checks require the reported fixed 32-sample delay and the centered
+three-position selector above smaller Volume/Saturation controls. Legacy 23-value
+DAW state and user preset fixtures must migrate with saturation at zero; new
+25-value states/presets round-trip with nonzero saturation and Transistor selected.
 
 Run results: https://github.com/voyagersquare/KBass/actions
 

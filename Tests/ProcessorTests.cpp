@@ -58,7 +58,8 @@ static void checkSmoothCutoff(KBassProcessor& processor,juce::Slider& slider) {
 int main(int argc,char** argv) {
     juce::ScopedJuceInitialiser_GUI gui;
     KBassProcessor p; p.prepareToPlay(48000,512);
-    require(p.getParameters().size()==23,"all audio parameters and envelope selector are registered");
+    require(p.getParameters().size()==25,"original parameters and two appended saturation controls are registered");
+    require(p.getLatencySamples()==kbass::Saturation::latencySamples,"oversampling latency is reported to the host");
     require(p.acceptsMidi() && !p.producesMidi(),"instrument MIDI routing");
     juce::AudioBuffer<float> audio(2,512); juce::MidiBuffer midi;
     midi.addEvent(juce::MidiMessage::noteOn(1,36,1.0f),123); p.processBlock(audio,midi);
@@ -70,13 +71,22 @@ int main(int argc,char** argv) {
         require(audio.getMagnitude(0,512)>.0001,"each factory preset produces sound");
     }
     set(p,"wave1",2); set(p,"wave2",1); set(p,"ampAttack",.24f); set(p,"filterAttack",.67f); set(p,"envTarget",1); set(p,"cutoff",432);
+    set(p,"saturation",.64f); set(p,"saturationType",2);
     juce::MemoryBlock saved; p.getStateInformation(saved);
     KBassProcessor restored; restored.setStateInformation(saved.getData(),int(saved.getSize()));
     for(const char* id:parameterIds)
         require(std::abs(p.parameters.getRawParameterValue(id)->load()-restored.parameters.getRawParameterValue(id)->load())<1e-5,"DAW state round trip retains all parameters");
     const char invalid[]="bad state"; restored.setStateInformation(invalid,sizeof(invalid));
     require(restored.parameters.getRawParameterValue("cutoff")->load()==432,"invalid state leaves patch intact");
-    auto broken=p.parameters.copyState(); broken.setProperty("schemaVersion",1,nullptr);
+    auto legacy=p.parameters.copyState(); legacy.setProperty("schemaVersion",1,nullptr);
+    legacy.removeChild(legacy.getChildWithProperty("id","saturation"),nullptr);
+    legacy.removeChild(legacy.getChildWithProperty("id","saturationType"),nullptr);
+    juce::MemoryBlock oldState; juce::AudioProcessor::copyXmlToBinary(*legacy.createXml(),oldState);
+    restored.setStateInformation(oldState.getData(),int(oldState.getSize()));
+    require(restored.parameters.getRawParameterValue("saturation")->load()==0 && restored.parameters.getRawParameterValue("saturationType")->load()==0,
+        "legacy 23-parameter projects load with saturation bypassed");
+    require(restored.parameters.getRawParameterValue("cutoff")->load()==432,"legacy migration retains the original patch");
+    auto broken=p.parameters.copyState(); broken.setProperty("schemaVersion",2,nullptr);
     broken.getChildWithProperty("id","cutoff").setProperty("value",-10,nullptr);
     juce::MemoryBlock invalidState; juce::AudioProcessor::copyXmlToBinary(*broken.createXml(),invalidState);
     restored.setStateInformation(invalidState.getData(),int(invalidState.getSize()));
@@ -100,7 +110,12 @@ int main(int argc,char** argv) {
             if(!child->isVisible()) continue;
             if(dynamic_cast<juce::Slider*>(child) || dynamic_cast<juce::Button*>(child) || dynamic_cast<juce::ComboBox*>(child)) controls.push_back(child);
         }
-        require(controls.size()==22,"nineteen synth controls, separate factory/user menus and Save are visible");
+        require(controls.size()==24,"synth and saturation controls, separate preset menus and Save are visible");
+        auto* volume=editor->findControl("volume"); auto* amount=editor->findControl("saturation"); auto* type=editor->findControl("saturationType");
+        require(volume && amount && type,"all three output controls are present");
+        require(volume->getY()==amount->getY() && volume->getWidth()<130 && volume->getRight()<amount->getX(),"smaller Volume and Saturation sit beside each other");
+        require(type->getBottom()<volume->getY() && type->getBounds().getCentreX()==(volume->getBounds().getCentreX()+amount->getBounds().getCentreX())/2,
+            "three-position saturation selector is centered above the two output knobs");
         for(size_t a=0;a<controls.size();++a) {
             require(editor->getLocalBounds().reduced(48,8).contains(controls[a]->getBounds()),"controls remain within metal faceplate");
             for(size_t b=a+1;b<controls.size();++b)

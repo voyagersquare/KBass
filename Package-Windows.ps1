@@ -3,7 +3,7 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Scripts\PortableZip.ps1')
 $root = $PSScriptRoot
 Set-Location $root
-$version = '0.2.1'
+$version = '0.3.0'
 $module = Join-Path $root 'build\windows-x64\KBass_artefacts\Release\VST3\KBass.vst3'
 $binary = Join-Path $module 'Contents\x86_64-win\KBass.vst3'
 if (!(Test-Path $binary) -or (Get-Item $binary).Length -eq 0) { throw 'Windows x64 VST3 module is missing.' }
@@ -14,7 +14,7 @@ $stage = Join-Path $root 'build\stage'
 $packages = Join-Path $root 'build\packages'
 New-Item -ItemType Directory -Force $stage, $packages | Out-Null
 Copy-Item $module $stage -Recurse -Force
-Copy-Item (Join-Path $root 'README.md'), (Join-Path $root 'LICENSE') $stage -Force
+Copy-Item (Join-Path $root 'README.md'), (Join-Path $root 'LICENSE'), (Join-Path $root 'SATURATION.md') $stage -Force
 Copy-Item (Join-Path $root 'ThirdParty') $stage -Recurse -Force
 $portable = Join-Path $packages "KBass-$version-Windows-x64-VST3.zip"
 Write-PortableZip $stage $portable

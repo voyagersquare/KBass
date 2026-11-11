@@ -35,24 +35,8 @@ juce::Result KBassProcessor::readUserPreset(const juce::File& file,juce::ValueTr
     if (!isValidUserPresetName(name) || xml->getNumChildElements()!=1)
         return juce::Result::fail("The preset name or contents are invalid.");
     state=juce::ValueTree::fromXml(*xml->getFirstChildElement());
-    if (!state.hasType("KBassState") || static_cast<int>(state.getProperty("schemaVersion"))!=1
-        || state.getNumChildren()!=static_cast<int>(parameterIds.size()))
+    if (!validateAndMigrateState(state))
         return juce::Result::fail("The preset state is incomplete or unsupported.");
-    for (auto id : parameterIds)
-    {
-        const auto child=state.getChildWithProperty("id",id);
-        const auto number=juce::JSON::fromString(child.getProperty("value").toString());
-        if (!child.isValid()
-            || !(number.isInt() || number.isInt64() || number.isDouble()))
-            return juce::Result::fail("The preset contains an invalid parameter.");
-        const double value=static_cast<double>(number);
-        const auto* parameter=parameters.getParameter(id);
-        const float storedValue=static_cast<float>(value);
-        if (!std::isfinite(value) || !std::isfinite(storedValue) || storedValue<parameter->convertFrom0to1(0)
-            || storedValue>parameter->convertFrom0to1(1)
-            || ((juce::String(id)=="wave1" || juce::String(id)=="wave2" || juce::String(id)=="octave" || juce::String(id)=="envTarget" || juce::String(id)=="lfoWave") && value!=std::floor(value)))
-            return juce::Result::fail("The preset contains a parameter outside its valid range.");
-    }
     return juce::Result::ok();
 }
 std::vector<KBassProcessor::UserPreset> KBassProcessor::getUserPresets() const
@@ -87,7 +71,7 @@ juce::Result KBassProcessor::saveUserPreset(const juce::String& requestedName,bo
     // UUID filenames keep display names separate from filesystem paths.
     if (destination==juce::File{}) destination=userPresetFolder.getChildFile(juce::Uuid().toString()+".kbasspreset");
     auto state=parameters.copyState();
-    state.setProperty("schemaVersion",1,nullptr);
+    state.setProperty("schemaVersion",2,nullptr);
     state.setProperty("program",currentProgram.load(),nullptr);
     state.setProperty("userPresetName",name,nullptr);
     juce::XmlElement document("KBassUserPreset");

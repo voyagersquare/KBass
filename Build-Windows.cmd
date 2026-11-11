@@ -15,7 +15,7 @@ where ninja >nul 2>&1
 if errorlevel 1 goto :missingtools
 cmake --preset windows-x64
 if errorlevel 1 goto :failed
-cmake --build --preset windows-release --target KBass_VST3 KBassDspTests KBassProcessorTests KBassUserPresetTests --parallel 2
+cmake --build --preset windows-release --target KBass_VST3 KBassDspTests KBassSaturationTests KBassProcessorTests KBassUserPresetTests --parallel 2
 if errorlevel 1 goto :failed
 ctest --preset windows-release
 if errorlevel 1 goto :failed

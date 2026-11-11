@@ -3,6 +3,7 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include "Saturation.h"
 
 namespace kbass {
 constexpr double pi = 3.14159265358979323846;
@@ -12,6 +13,8 @@ struct Parameters {
     float detune=4, glide=.06f, pitchLfo=0, mix=.35f;
     Adsr amp{}, filter{.002f,.22f,.05f,.15f};
     float lfoSpeed=4, cutoff=650, resonance=.22f, filterEnv=3, filterLfo=0, volume=.7f;
+    float saturation=0;
+    int saturationType=0;
 };
 
 class Envelope {
@@ -89,14 +92,19 @@ public:
         smoothing=float(1-std::exp(-1/(.012*sampleRate)));
         lfoSmoothing=float(1-std::exp(-1/(.002*sampleRate)));
         cutoffSmoother.prepare(sampleRate,target.cutoff);
+        saturator.prepare(sampleRate,target.saturation,target.saturationType);
         reset();
     }
-    void setParameters(const Parameters& p) noexcept { target=p; cutoffSmoother.setTarget(p.cutoff); }
+    void setParameters(const Parameters& p) noexcept {
+        target=p; cutoffSmoother.setTarget(p.cutoff);
+        saturator.setParameters(p.saturation,p.saturationType);
+    }
     void reset() noexcept {
         for(auto& c:held) c.fill(Held{});
         pedals.fill(false); bends.fill(0); smoothedBends.fill(0); voice=Voice{}; order=0;
         smooth=target; dcIn=dcOut=0; lfoPhase=0; lfoValue=0;
         cutoffSmoother.reset(target.cutoff);
+        saturator.reset(target.saturation,target.saturationType);
         for(int i=0;i<3;++i) {
             weights1[size_t(i)]=target.wave1==i ? 1.0f : 0.0f;
             weights2[size_t(i)]=target.wave2==i ? 1.0f : 0.0f;
@@ -129,7 +137,9 @@ public:
     void allNotesOff(int channel,bool immediate) noexcept {
         if(channel<1 || channel>16) return;
         held[size_t(channel-1)].fill(Held{}); pedals[size_t(channel-1)]=false;
-        if(voice.channel==channel && immediate) { voice=Voice{}; dcIn=dcOut=0; }
+        if(voice.channel==channel && immediate) {
+            voice=Voice{}; dcIn=dcOut=0; saturator.reset(target.saturation,target.saturationType);
+        }
         selectLast();
     }
     float currentPitch() const noexcept { return voice.pitch; }
@@ -184,7 +194,10 @@ public:
             }
             const float blocked=sample-dcIn+dcPole*dcOut;
             dcIn=sample; dcOut=std::abs(blocked)<1e-20f ? 0 : blocked;
-            const float out=float(std::tanh(blocked*.85))*smooth.volume;
+            // Preserve the original voicing before the new oversampled stage,
+            // avoiding another nonlinear operation after decimation.
+            const float coloured=saturator.process(float(std::tanh(blocked*.85)));
+            const float out=coloured*smooth.volume;
             left[i]+=out; if(right) right[i]+=out;
         }
     }
@@ -241,6 +254,7 @@ private:
     uint64_t order=0;
     double sampleRate=44100,lfoPhase=0;
     CutoffSmoother cutoffSmoother;
+    Saturation saturator;
     float smoothing=.003f,lfoSmoothing=.01f,lfoValue=0,dcIn=0,dcOut=0;
 };
 }

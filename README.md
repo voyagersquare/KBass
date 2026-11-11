@@ -1,4 +1,4 @@
-# KBass 0.2.1 — Independent Audio
+# KBass 0.3.0 — Independent Audio
 
 **Windows 10/11 x64 VST3 bass instrument.** Dva audio oscilatora s izborom
 **SAW / SQUARE / SINE**, dva zasebna ADSR-a i sučelje nadahnuto priloženom
@@ -16,11 +16,17 @@ metalom, dublje ogrebotine, tamne masne mrlje, izlizani rubovi potenciometara
 i tragovi korištenja na kromu i drvenim stranicama. Natpisi i oznake kontrola
 ostaju čitljivi.
 
+Verzija **0.3.0** dodaje **SATURATION** pored smanjenog **VOLUME** gumba.
+Trostupanjski **SAT TYPE** bira **Tube / Tape / Transistor** i nalazi se iznad
+njih, u sredini. Saturacija pojačava i podebljava signal prije izlazne glasnoće.
+Na 0% zvuk ostaje kao prije, uz fiksnu latenciju od 32 samplea koju plugin
+prijavljuje DAW-u (0.67 ms pri 48 kHz).
+
 ## Testni VST3 ZIP
 
 Gotove datoteke nakon uspješnog Windows builda nalaze se u
 [Releases](https://github.com/voyagersquare/KBass/releases).
-Preuzmi **KBass-0.2.1-Windows-x64-VST3.zip**. Ova testna verzija isporučuje
+Preuzmi **KBass-0.3.0-Windows-x64-VST3.zip**. Ova testna verzija isporučuje
 se bez novog Windows instalera. Zatvori DAW i iz ZIP-a kopiraj cijelu mapu
 `KBass.vst3` u `C:\Program Files\Common Files\VST3`, zamjenjujući prethodni KBass.
 U Abletonu uključi **Use VST3 Plug-In System Folders**, odaberi **Rescan**,
@@ -32,8 +38,9 @@ Unutarnju `.vst3` datoteku nemoj odvajati od paketa. Nije potrebno instalirati
 Visual Studio za korištenje. Ako Ableton još prikazuje staru grupu proizvođača,
 drži Alt dok klikneš Rescan kako bi ponovno skenirao plugine.
 
-Proizvođač ostaje **Independent Audio**. Postojeći VST3 identifikatori i svih
-23 parametra zadržani su, a stanje projekata iz verzija 0.1.0 i 0.1.1 se učitava.
+Proizvođač ostaje **Independent Audio**. Postojeći VST3 identifikatori i izvorna
+23 parametra zadržani su. Nova dva parametra dodana su na kraj. Projekti i
+korisnički preseti iz verzija 0.1.x i 0.2.x učitavaju se sa saturacijom na nuli.
 
 ## Kontrole
 
@@ -45,7 +52,9 @@ Proizvođač ostaje **Independent Audio**. Postojeći VST3 identifikatori i svih
 | ENVELOPE | ATTACK, DECAY, SUSTAIN, RELEASE; AMP/FILT bira koji se ADSR uređuje |
 | LFO | WAVE: saw, triangle, square; SPEED: 0.03–30 Hz |
 | FILTER | CUTOFF: 20 Hz–18 kHz; RESO; ENV: 0–6 oktava; LFO: 0–4 oktave |
-| VOLUME | Izlazna glasnoća; minimum potpuno utišava izlaz |
+| VOLUME | Izlazna glasnoća nakon saturacije; minimum potpuno utišava izlaz |
+| SATURATION | 0–100%; istodobno pojačava drive i udio obrađenog signala |
+| SAT TYPE | Tube: topliji asimetrični drive; Tape: kompresija i mekši visoki; Transistor: čvršći drive |
 | FACTORY PRESETS | Izbornik šest tvorničkih preseta, u donjoj traci |
 | USER PRESETS | Susjedni izbornik trajno spremljenih korisničkih zvukova |
 | SAVE | Unesi ime i spremi trenutni zvuk kao korisnički preset |
@@ -78,6 +87,12 @@ ne uzrokuje skok vrijednosti. Audio koristi dvostupanjsko zaglađivanje cutoffa
 u oktavnom prostoru; filter envelope i LFO ostaju brzi. Kontrole ADSR-a, pitch
 bend, glasnoća, mix i dubine modulacije također imaju zaglađene prijelaze.
 
+Saturacija koristi tri zasebna DSP modela, **4× oversampling** s FIR filtrima,
+zaglađenu količinu i glatki prijelaz između tipova. Saturacijom možeš podići
+razinu signala; **VOLUME** zatim postavlja konačni izlaz. Nema automatskog
+izjednačavanja glasnoće. Sva tri tipa i količina spremaju se u projekt i user
+preset, a factory preseti kreću od 0%. Detalji: [SATURATION.md](SATURATION.md).
+
 ## Audio i MIDI
 
 - Dva audio oscilatora: PolyBLEP saw i square te sinusni generator.
@@ -87,7 +102,8 @@ bend, glasnoća, mix i dubine modulacije također imaju zaglađene prijelaze.
 - MIDI note on/off po sampleu; pitch bend ±2 polutona; CC64 sustain;
   CC120/123 panic i CC121 reset kontrolera.
 - Mono ili stereo izlaz, bez audio ulaza. Stereo kanali nose isti mono signal.
-- Zaštita od denormala, DC blocker i mekano ograničenje izlaza.
+- Zaštita od denormala, DC blocker i izvorno mekano oblikovanje prije saturacije.
+- Saturacija na 4× sample rateu; fiksna latencija 32 samplea, pri svim postavkama.
 
 Prikaz referentne slike ne otkriva točan filter ni izvorni algoritam, pa KBass
 ne obećava identičan zvuk BASSIMO-u. Nema zasebnog trećeg audio oscilatora:

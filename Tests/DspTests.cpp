@@ -91,11 +91,13 @@ int main() {
         unchanged.noteOn(1,69,1); edited.noteOn(1,69,1);
         render(unchanged,48537); render(edited,48537);
         stable.amp.sustain=0; edited.setParameters(stable);
+        render(unchanged,kbass::Saturation::latencySamples); render(edited,kbass::Saturation::latencySamples);
         require(std::abs(render(unchanged,1)[0]-render(edited,1)[0])<.002,"live sustain adjustment does not jump the audio level");
         stable.amp.sustain=1; stable.cutoff=60;
         unchanged.setParameters(stable); edited.setParameters(stable);
         render(unchanged,24000); render(edited,24000);
         stable.cutoff=12000; edited.setParameters(stable);
+        render(unchanged,kbass::Saturation::latencySamples); render(edited,kbass::Saturation::latencySamples);
         require(std::abs(render(unchanged,1)[0]-render(edited,1)[0])<.00001,"a large cutoff step starts without an audio discontinuity");
     }
     kbass::Envelope amp,filter; kbass::Adsr a{.001f,.01f,.8f,.01f}, f{.001f,.01f,.4f,.5f};
@@ -109,5 +111,17 @@ int main() {
             e.setParameters(p); e.prepare(rate); e.noteOn(1,127,1);
             for(const float v:render(e,4096)) require(std::isfinite(v) && std::abs(v)<=1,"extreme settings remain finite and bounded");
         }
-    std::cout<<"PASS: wave spectra, oscillator tuning, envelopes, glide, MIDI, filter, LFO and sample-rate stability\n";
+    p.wave1=p.wave2=2; p.mix=0; p.cutoff=18000; p.filterEnv=p.filterLfo=p.pitchLfo=0; p.resonance=0;
+    p.amp={.001f,.01f,.15f,.04f}; p.volume=.7f; p.saturation=0;
+    e.setParameters(p); e.prepare(48000); e.noteOn(1,48,1); render(e,12000);
+    const double dryEnergy=rms(render(e,4800));
+    for(int type=0;type<3;++type) {
+        p.saturation=.9f; p.saturationType=type; e.setParameters(p); e.prepare(48000); e.noteOn(1,48,1); render(e,12000);
+        require(rms(render(e,4800))>dryEnergy*1.8,"each saturation type thickens the actual instrument signal");
+        p.volume=0; e.setParameters(p); render(e,24000);
+        require(rms(render(e,4800))<1e-6,"master Volume mutes the saturated output");
+        p.volume=.7f; e.setParameters(p); render(e,12000); e.allNotesOff(1,true);
+        require(rms(render(e,512))==0,"MIDI all-sound-off clears the saturation delay and memory immediately");
+    }
+    std::cout<<"PASS: wave spectra, oscillator tuning, envelopes, glide, MIDI, filter, LFO, saturation routing and sample-rate stability\n";
 }
