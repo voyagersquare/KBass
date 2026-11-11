@@ -26,7 +26,11 @@ if (!(Test-Path "$juceSource\LICENSE.md")) { throw 'Matching JUCE source is miss
 Write-PortableZip $juceSource (Join-Path $packages 'JUCE-8.0.6-Source.zip')
 if (!$SkipInstaller) {
     $compiler = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
-    if (!(Test-Path $compiler)) { throw 'Install Inno Setup 6 before packaging the installer.' }
+    if (!(Test-Path $compiler)) {
+        $found = Get-Command ISCC.exe -ErrorAction SilentlyContinue
+        if ($found) { $compiler = $found.Source }
+        else { throw 'Install Inno Setup 6 before packaging the installer.' }
+    }
     & $compiler "/DAppVersion=$version" "/DStageDir=$stage" "/DOutputDir=$packages" (Join-Path $root 'Installer\KBass.iss')
     if ($LASTEXITCODE -ne 0) { throw 'Installer compilation failed.' }
 }

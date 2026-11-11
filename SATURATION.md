@@ -40,4 +40,6 @@ load. Factory sounds default to 0%; saved user sounds remember both new controls
 treble colour, folded-harmonic suppression, smoothed transitions and stability.
 Native processor and user-preset tests check host latency, layout, state recall
 and legacy migration. Windows CI requires all these tests and pluginval level 5
-before publishing a portable VST3 test ZIP.
+before publishing the Windows installer and portable VST3 ZIP. Installer tests
+also verify system installation, repair, installed-plugin validation and
+uninstall while preserving user presets.

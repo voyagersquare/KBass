@@ -1,4 +1,4 @@
-name: KBass Windows VST3 test - Independent Audio
+name: KBass Windows VST3 and installer - Independent Audio
 on:
   workflow_dispatch:
   push:
@@ -71,14 +71,28 @@ jobs:
           if (Compare-Object @($expected | Sort-Object) @($metadata.Classes.CID | Sort-Object)) { throw 'Existing VST3 class IDs have changed.' }
           New-Item -ItemType Directory -Force 'build\packages' | Out-Null
           @{ manufacturer='Independent Audio'; classIDsPreserved=$true; installerBuilt=$false; installerExecuted=$false; version='0.3.0' } | ConvertTo-Json | Set-Content 'build\packages\manufacturer-test-results.json' -Encoding UTF8
-      - name: Package the test VST3 and matching source without an installer
+      - name: Build the Windows installer and portable VST3
         shell: powershell
         run: |
           $ErrorActionPreference = 'Stop'
-          .\Package-Windows.ps1 -SkipInstaller
+          .\Package-Windows.ps1
           Copy-Item '.\KBass-editor.png' '.\build\packages\KBass-editor.png'
           Copy-Item '.\build\pluginval\*.txt' '.\build\packages' -Force
-          if (Get-ChildItem '.\build\packages' -Filter '*.exe') { throw 'A test release must not contain an installer.' }
+          if (!(Test-Path '.\build\packages\KBass-0.3.0-Windows-x64-Setup.exe')) { throw 'Windows installer is missing.' }
+      - name: Test system installation, repair and uninstall with preserved user presets
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $validator = (Get-ChildItem (Join-Path $env:RUNNER_TEMP 'pluginval-1.0.4') -Filter pluginval.exe -Recurse | Select-Object -First 1).FullName
+          .\Scripts\Test-WindowsInstaller.ps1 -SetupPath '.\build\packages\KBass-0.3.0-Windows-x64-Setup.exe' -SourceBundle '.\build\windows-x64\KBass_artefacts\Release\VST3\KBass.vst3' -ValidatorPath $validator
+          $checks = Get-Content '.\build\packages\manufacturer-test-results.json' -Raw | ConvertFrom-Json
+          $checks.installerBuilt = $true
+          $checks.installerExecuted = $true
+          $checks | ConvertTo-Json | Set-Content '.\build\packages\manufacturer-test-results.json' -Encoding UTF8
+      - name: Hash the verified packages and installation reports
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
           $lines = Get-ChildItem '.\build\packages' -File | Where-Object Name -ne 'SHA256SUMS.txt' | ForEach-Object { (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant() + '  ' + $_.Name }
           $lines | Set-Content '.\build\packages\SHA256SUMS.txt' -Encoding ASCII
       - name: Upload tested Windows packages
@@ -96,6 +110,9 @@ jobs:
           path: |
             build/windows-x64/Testing/Temporary/LastTest.log
             build/pluginval/*
+            build/installed-pluginval/*
+            build/packages/installer-*.log
+            build/packages/installer-test-results.json
             KBass-editor.png
           if-no-files-found: ignore
   release:
@@ -125,8 +142,11 @@ jobs:
           assert info['sourceCommit']==os.environ['GITHUB_SHA']
           assert info['format']=='VST3' and info['standalone'] is False
           assert info['version']=='0.3.0' and info['manufacturer']=='Independent Audio'
-          assert info['installerBuilt'] is False
-          assert not list(root.glob('*.exe'))
+          assert info['installerBuilt'] is True
+          installers=list(root.glob('*.exe'))
+          assert len(installers)==1 and installers[0].name=='KBass-0.3.0-Windows-x64-Setup.exe'
+          setup=installers[0].read_bytes()
+          assert setup[:2]==b'MZ'
           for line in (root/'SHA256SUMS.txt').read_text().splitlines():
               digest,name=line.split('  ',1)
               assert Path(name).name==name
@@ -138,16 +158,24 @@ jobs:
               assert data[pe:pe+4]==b'PE\0\0' and struct.unpack_from('<H',data,pe+4)[0]==0x8664
           checks=json.loads((root/'manufacturer-test-results.json').read_text(encoding='utf-8-sig'))
           assert checks['manufacturer']=='Independent Audio' and checks['classIDsPreserved'] is True
-          assert checks['installerBuilt'] is False and checks['installerExecuted'] is False
+          assert checks['installerBuilt'] is True and checks['installerExecuted'] is True
+          installed=json.loads((root/'installer-test-results.json').read_text(encoding='utf-8-sig'))
+          assert installed['sourceCommit']==os.environ['GITHUB_SHA']
+          assert installed['version']=='0.3.0' and installed['manufacturer']=='Independent Audio'
+          for key in ['installerBuilt','installerExecuted','manualBundleUpgrade','repairPassed','installedPluginvalPassed','uninstallPassed','userPresetsPreserved']:
+              assert installed[key] is True, key
+          assert installed['installedPath'].lower()==r'c:\program files\common files\vst3\kbass.vst3'
+          assert installed['installerSHA256']==hashlib.sha256(setup).hexdigest()
+          assert installed['installedBinarySHA256']==hashlib.sha256(data).hexdigest()
           PY
           cat > notes.md <<'EOF'
-          KBass 0.3.0 - Independent Audio - Windows x64 VST3 test.
+          KBass 0.3.0 - Independent Audio - Windows x64 VST3 installer.
 
           Novi SATURATION gumb pored smanjenog VOLUME gumba te trostupanjski SAT TYPE izbornik iznad njih: Tube, Tape i Transistor. Tri vlastita DSP modela daju različit karakter, uz 4x oversampling, zaglađene promjene i fiksnu latenciju 32 samplea prijavljenu DAW-u. Tube dodaje asimetrične harmonike, Tape omekšava visoke i komprimira signal, Transistor daje čvršći drive. Saturacija na 0% čuva prethodni zvuk. Stari projekti i korisnički preseti učitavaju se sa saturacijom na nuli; novi spremaju sva 25 parametra. Prljavo i oguljeno kućište, preset izbornici i glatki Cutoff ostaju.
 
-          Preuzmi KBass-0.3.0-Windows-x64-VST3.zip. Zatvori DAW i zamijeni cijelu mapu KBass.vst3 u C:\Program Files\Common Files\VST3. Pokreni Ableton, napravi Rescan i potraži Independent Audio > KBass. Ako je ostao stari naziv proizvođača, drži Alt i klikni Rescan.
+          Preuzmi KBass-0.3.0-Windows-x64-Setup.exe. Zatvori DAW i pokreni instaler. On automatski postavlja cijeli paket u C:\Program Files\Common Files\VST3\KBass.vst3. Pokreni Ableton, napravi Rescan i potraži Independent Audio > KBass. Ako je ostao stari naziv proizvođača, drži Alt i klikni Rescan. ZIP ostaje dostupan za ručno kopiranje.
 
-          Ovo je testni VST3 ZIP bez novog instalera. Windows build, saturation spektri/antialiasing/smoothing i DSP/MIDI/state/UI testovi, trajno spremanje i ponovno učitavanje korisničkih preseta, Save dijalog, Cutoff interakcije, pluginval level 5, proizvođač i očuvani VST3 identifikatori provjereni su u CI-u. Izvorni kod, licence i SHA-256 priloženi su uz testni paket. KBass/JUCE distribucija: AGPLv3.
+          Instaler je izvršen i provjeren na Windows runneru: nadogradnja ručno kopiranog paketa, točna sistemska VST3 lokacija i sadržaj, ponovna instalacija/popravak, pluginval level 5 nad instaliranim pluginom i deinstalacija uz očuvane korisničke presete. Windows build, saturation i DSP/MIDI/state/UI testovi, Save dijalog, glatki Cutoff, proizvođač i očuvani VST3 identifikatori također su provjereni. Izvorni kod, licence, instalacijski logovi i SHA-256 priloženi su uz paket. KBass/JUCE distribucija: AGPLv3.
           EOF
-          tag="v0.3.0-test.${GITHUB_RUN_NUMBER}"
-          gh release create "$tag" --target "$GITHUB_SHA" --prerelease --latest=false --title 'KBass 0.3.0 - Independent Audio - VST3 test' --notes-file notes.md packages/*
+          tag="v0.3.0-installer.${GITHUB_RUN_NUMBER}"
+          gh release create "$tag" --target "$GITHUB_SHA" --prerelease --latest=false --title 'KBass 0.3.0 - Independent Audio - Windows installer' --notes-file notes.md packages/*

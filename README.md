@@ -22,13 +22,20 @@ njih, u sredini. Saturacija pojačava i podebljava signal prije izlazne glasnoć
 Na 0% zvuk ostaje kao prije, uz fiksnu latenciju od 32 samplea koju plugin
 prijavljuje DAW-u (0.67 ms pri 48 kHz).
 
-## Testni VST3 ZIP
+## Windows instaler i VST3 ZIP
 
 Gotove datoteke nakon uspješnog Windows builda nalaze se u
 [Releases](https://github.com/voyagersquare/KBass/releases).
-Preuzmi **KBass-0.3.0-Windows-x64-VST3.zip**. Ova testna verzija isporučuje
-se bez novog Windows instalera. Zatvori DAW i iz ZIP-a kopiraj cijelu mapu
-`KBass.vst3` u `C:\Program Files\Common Files\VST3`, zamjenjujući prethodni KBass.
+Preuzmi **KBass-0.3.0-Windows-x64-Setup.exe**. Zatvori DAW i pokreni instaler.
+Instalira cijeli VST3 paket u
+`C:\Program Files\Common Files\VST3\KBass.vst3`, a dokumentaciju i deinstaler
+u `C:\Program Files\Independent Audio\KBass`. Windows traži administratorsko
+odobrenje jer se plugin postavlja u sistemsku mapu. Ponovna instalacija
+ažurira ili popravlja postojeći paket. Deinstalacija preko Windows Settings >
+Apps uklanja plugin i čuva korisničke presete.
+
+Za ručno kopiranje dostupan je i **KBass-0.3.0-Windows-x64-VST3.zip**: iz njega
+kopiraj cijelu mapu `KBass.vst3` u `C:\Program Files\Common Files\VST3`.
 U Abletonu uključi **Use VST3 Plug-In System Folders**, odaberi **Rescan**,
 zatim pod proizvođačem **Independent Audio** odaberi **KBass** i stavi ga na
 MIDI traku. Uključi Monitor In ili record-arm.
@@ -119,8 +126,12 @@ određenom commitu; prvi build zahtijeva internet.
 GitHub Actions automatski gradi VST3 na Windowsu, izvršava DSP i processor/UI
 testove, snima stvarni editor, provjerava Windows x64 modul i proizvođača
 Independent Audio te izrađuje testni VST3 ZIP. Pokreće se i pluginval level 5.
-Novi instaler se ne izrađuje ni pokreće. Paketi uključuju SHA-256 i odgovarajući
-izvorni kod KBass-a i JUCE-a.
+Inno Setup 6 izrađuje Windows instaler. CI zatim stvarno instalira plugin u
+sistemsku VST3 mapu, provjerava identičnost instaliranih datoteka, popravak
+ponovnom instalacijom, pluginval level 5 nad instaliranim pluginom te
+deinstalaciju koja čuva user presete. Tek nakon uspjeha objavljuje pakete,
+instalacijske logove, SHA-256 i odgovarajući izvorni kod KBass-a i JUCE-a.
+`Package-Windows.ps1 -SkipInstaller` i dalje omogućuje izradu samo ZIP-a.
 
 Za samostalne DSP testove bez JUCE-a:
 

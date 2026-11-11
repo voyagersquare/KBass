@@ -25,11 +25,17 @@ The Linux VST3 passes pluginval 1.0.4 strictness level 5, including state,
 automation, repeated editor opening and audio processing at 44.1/48/96 kHz.
 The Windows workflow also requires pluginval level 5 before packaging.
 
-The 0.3.0 test ZIP is gated by a native MSVC build, DSP, processor and user preset tests,
+The 0.3.0 Windows packages are gated by a native MSVC build, DSP, processor and user preset tests,
 a real native-editor capture, Windows pluginval and PE x64 checks. The compiled
 module must report Independent Audio for every VST3 class, while retaining the
-three existing class IDs. This version does not build or execute an installer.
-Logs and SHA-256 checks accompany the test release.
+three existing class IDs. The Inno Setup installer is then executed in the
+isolated Windows runner. Tests verify upgrade from a manually copied bundle,
+all installed file hashes in the system VST3 directory, the Independent Audio
+uninstall entry, repair by reinstalling, pluginval level 5 on the installed
+bundle and uninstall removal. A user-preset fixture must survive installation,
+repair and uninstall unchanged. The release gate checks the matching installer,
+binary and source-commit hashes in the installation report.
+Installation logs and SHA-256 checks accompany the release.
 
 Dedicated saturation checks cover bit-exact delayed dry bypass, FIR/reset silence,
 bass RMS boost, Tube even harmonics, predominantly odd Tape/Transistor harmonics,
