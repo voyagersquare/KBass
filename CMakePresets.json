@@ -1,0 +1,9 @@
+{
+  "version": 3,
+  "configurePresets": [{
+    "name": "windows-x64", "generator": "Ninja", "binaryDir": "${sourceDir}/build/windows-x64",
+    "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "CMAKE_C_COMPILER": "cl", "CMAKE_CXX_COMPILER": "cl", "KBASS_BUILD_TESTS": "ON" }
+  }],
+  "buildPresets": [{"name":"windows-release","configurePreset":"windows-x64"}],
+  "testPresets": [{"name":"windows-release","configurePreset":"windows-x64","output":{"outputOnFailure":true}}]
+}

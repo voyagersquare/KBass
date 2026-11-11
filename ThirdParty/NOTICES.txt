@@ -1,0 +1,18 @@
+KBass
+Copyright (c) 2026 voyagersquare. SPDX-License-Identifier: AGPL-3.0-or-later.
+
+JUCE 8.0.6
+Copyright (c) Raw Material Software Limited.
+Pinned source commit: 51a8a6d7aeae7326956d747737ccf1575e61e209
+https://github.com/juce-framework/JUCE
+This distribution uses JUCE's AGPLv3 option. See LICENSE-AGPL-3.0.txt and
+JUCE's own LICENSE.md and third-party notices in the corresponding source.
+
+The existing voyagersquare/RaBASS CC0 project was consulted for Windows build
+conventions and MIDI/processor integration. KBass is a separate instrument.
+
+VST is a trademark of Steinberg Media Technologies GmbH. The VST3 SDK included
+with the pinned JUCE source retains its own licence and notices.
+
+The supplied BASSIMO image was used as a visual layout reference. No original
+image, WOK branding or BASSIMO code is distributed in KBass.

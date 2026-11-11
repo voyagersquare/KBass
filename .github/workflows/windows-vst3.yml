@@ -1,0 +1,123 @@
+name: KBass Windows VST3
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: kbass-windows-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: windows-2025
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Build VST3 and execute audio, state and editor tests
+        shell: powershell
+        run: |
+          & .\Build-Windows.cmd --no-pause
+          if ($LASTEXITCODE -ne 0) { throw 'Build or validation failed.' }
+      - name: Capture the real native editor
+        shell: powershell
+        run: |
+          & .\build\windows-x64\KBassProcessorTests.exe KBass-editor.png
+          if ($LASTEXITCODE -ne 0) { throw 'Editor capture failed.' }
+      - name: Install pinned Inno Setup compiler
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $setup = Join-Path $env:RUNNER_TEMP 'innosetup-6.7.4.exe'
+          Invoke-WebRequest 'https://github.com/jrsoftware/issrc/releases/download/is-6_7_4/innosetup-6.7.4.exe' -OutFile $setup
+          if ((Get-FileHash $setup -Algorithm SHA256).Hash.ToLowerInvariant() -ne 'a549929319f9120716677c685535ca4671e4b937b5fdc87e2585f32d8eb30e8c') { throw 'Inno Setup checksum mismatch.' }
+          $process = Start-Process $setup -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-' -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw 'Inno Setup installation failed.' }
+      - name: Package VST3, Setup and corresponding sources
+        shell: powershell
+        run: .\Package-Windows.ps1
+      - name: Verify installation and uninstallation on Windows
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $setup = (Resolve-Path '.\build\packages\KBass-0.1.0-Windows-x64-Setup.exe').Path
+          $installed = Join-Path $env:CommonProgramFiles 'VST3\KBass.vst3\Contents\x86_64-win\KBass.vst3'
+          $original = '.\build\windows-x64\KBass_artefacts\Release\VST3\KBass.vst3\Contents\x86_64-win\KBass.vst3'
+          $process = Start-Process $setup -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-' -Wait -PassThru
+          if ($process.ExitCode -ne 0 -or !(Test-Path $installed)) { throw 'VST3 installation failed.' }
+          if ((Get-FileHash $installed).Hash -ne (Get-FileHash $original).Hash) { throw 'Installed VST3 differs from tested build.' }
+          $uninstaller = Join-Path $env:ProgramFiles 'Voyager Square\KBass\Uninstall\unins000.exe'
+          $process = Start-Process $uninstaller -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru
+          if ($process.ExitCode -ne 0 -or (Test-Path $installed)) { throw 'VST3 uninstallation failed.' }
+          @{ freshInstall=$true; installedModuleChecksum=$true; uninstall=$true; format='VST3'; version='0.1.0' } | ConvertTo-Json | Set-Content '.\build\packages\installer-test-results.json' -Encoding UTF8
+          Copy-Item '.\KBass-editor.png' '.\build\packages\KBass-editor.png'
+          $lines = Get-ChildItem '.\build\packages' -File | Where-Object Name -ne 'SHA256SUMS.txt' | ForEach-Object { (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant() + '  ' + $_.Name }
+          $lines | Set-Content '.\build\packages\SHA256SUMS.txt' -Encoding ASCII
+      - name: Upload tested Windows packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: KBass-Windows-x64
+          path: build/packages/*
+          if-no-files-found: error
+          retention-days: 30
+      - name: Upload diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: KBass-diagnostics
+          path: |
+            build/windows-x64/Testing/Temporary/LastTest.log
+            KBass-editor.png
+          if-no-files-found: ignore
+  release:
+    needs: build
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: KBass-Windows-x64
+          path: packages
+      - name: Validate packages and publish preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, os, struct, zipfile
+          root=Path('packages')
+          info=json.loads((root/'release-info.json').read_text(encoding='utf-8-sig'))
+          assert info['sourceCommit']==os.environ['GITHUB_SHA']
+          assert info['format']=='VST3' and info['standalone'] is False
+          for line in (root/'SHA256SUMS.txt').read_text().splitlines():
+              digest,name=line.split('  ',1)
+              assert Path(name).name==name
+              assert hashlib.sha256((root/name).read_bytes()).hexdigest()==digest
+          with zipfile.ZipFile(root/'KBass-0.1.0-Windows-x64-VST3.zip') as z:
+              data=z.read('KBass.vst3/Contents/x86_64-win/KBass.vst3')
+              assert data[:2]==b'MZ'
+              pe=struct.unpack_from('<I',data,0x3c)[0]
+              assert data[pe:pe+4]==b'PE\0\0' and struct.unpack_from('<H',data,pe+4)[0]==0x8664
+          checks=json.loads((root/'installer-test-results.json').read_text(encoding='utf-8-sig'))
+          assert all(checks[k] is True for k in ('freshInstall','installedModuleChecksum','uninstall'))
+          PY
+          cat > notes.md <<'EOF'
+          KBass 0.1.0 — Windows x64 VST3 preview.
+
+          Dva oscilatora sa SAW / SQUARE / SINE izborom, odvojene AMP/FILT ADSR ovojnice, glide, pitch i filter LFO te rezonantni 24 dB/okt low-pass filter. Novo sučelje nadahnuto referencom: drvene stranice, tamni metal i kromirane kontrole.
+
+          Preuzmi KBass-0.1.0-Windows-x64-Setup.exe, zatvori DAW i pokreni instalaciju. U Abletonu uključi VST3 system folders i Rescan. Instalira se samo VST3 instrument. Dostupan je i ZIP za ručnu instalaciju cijele KBass.vst3 mape.
+
+          Windows build, DSP, MIDI/state/UI testovi i test instalacije/deinstalacije izvršeni su u GitHub Actions. Završna provjera u konkretnom DAW-u na korisnikovom računalu ostaje potrebna. Paketi uključuju izvorni kod i SHA-256. KBass/JUCE distribucija: AGPLv3.
+          EOF
+          tag="v0.1.0-preview.${GITHUB_RUN_NUMBER}"
+          gh release create "$tag" --target "$GITHUB_SHA" --prerelease --latest=false --title 'KBass 0.1.0 — Windows VST3' --notes-file notes.md packages/*
