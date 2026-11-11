@@ -50,9 +50,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout KBassProcessor::createLayout
     add("volume","Output volume",0,1,.7f,.5f,"");
     return layout;
 }
-KBassProcessor::KBassProcessor()
+KBassProcessor::KBassProcessor(juce::File presetFolder)
     : AudioProcessor(BusesProperties().withOutput("Output",juce::AudioChannelSet::stereo(),true)),
-      parameters(*this,nullptr,"KBassState",createLayout()) {
+      parameters(*this,nullptr,"KBassState",createLayout()),
+      userPresetFolder(presetFolder==juce::File{} ? defaultUserPresetFolder() : std::move(presetFolder)) {
     for(size_t i=0;i<raw.size();++i) raw[i]=parameters.getRawParameterValue(parameterIds[i]);
 }
 kbass::Parameters KBassProcessor::readParameters() const noexcept {
@@ -113,11 +114,12 @@ void KBassProcessor::setCurrentProgram(int index) {
         auto* p=parameters.getParameter(parameterIds[i]);
         p->beginChangeGesture(); p->setValueNotifyingHost(p->convertTo0to1(presets[size_t(index)].values[i])); p->endChangeGesture();
     }
-    currentProgram=index; resetRequested=true;
+    currentProgram=index; setUserPresetName({}); resetRequested=true;
 }
 void KBassProcessor::getStateInformation(juce::MemoryBlock& data) {
     auto state=parameters.copyState(); state.setProperty("schemaVersion",1,nullptr);
     state.setProperty("program",currentProgram.load(),nullptr);
+    state.setProperty("userPresetName",getCurrentUserPresetName(),nullptr);
     if(const auto xml=state.createXml()) copyXmlToBinary(*xml,data);
 }
 void KBassProcessor::setStateInformation(const void* data,int size) {
@@ -135,7 +137,10 @@ void KBassProcessor::setStateInformation(const void* data,int size) {
             if(!std::isfinite(v) || v<range.start || v>range.end) return;
         }
         parameters.replaceState(state);
-        currentProgram=juce::jlimit(0,5,int(state.getProperty("program",0))); resetRequested=true;
+        currentProgram=juce::jlimit(0,5,int(state.getProperty("program",0)));
+        const auto name=state.getProperty("userPresetName").toString();
+        setUserPresetName(isValidUserPresetName(name) ? name : juce::String{});
+        resetRequested=true;
     }
 }
 juce::AudioProcessorEditor* KBassProcessor::createEditor() { return new KBassEditor(*this); }

@@ -3,7 +3,7 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Scripts\PortableZip.ps1')
 $root = $PSScriptRoot
 Set-Location $root
-$version = '0.1.1'
+$version = '0.2.0'
 $module = Join-Path $root 'build\windows-x64\KBass_artefacts\Release\VST3\KBass.vst3'
 $binary = Join-Path $module 'Contents\x86_64-win\KBass.vst3'
 if (!(Test-Path $binary) -or (Get-Item $binary).Length -eq 0) { throw 'Windows x64 VST3 module is missing.' }

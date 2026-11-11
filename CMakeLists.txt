@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(KBass VERSION 0.1.1 LANGUAGES C CXX)
+project(KBass VERSION 0.2.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 option(KBASS_DSP_ONLY "Build portable audio engine tests without JUCE" OFF)
@@ -28,7 +28,7 @@ juce_add_plugin(KBass COMPANY_NAME "Independent Audio" BUNDLE_ID "audio.voyagers
     IS_MIDI_EFFECT FALSE EDITOR_WANTS_KEYBOARD_FOCUS FALSE
     VST3_CATEGORIES Instrument Synth COPY_PLUGIN_AFTER_BUILD FALSE)
 juce_generate_juce_header(KBass)
-target_sources(KBass PRIVATE Source/PluginProcessor.cpp Source/PluginEditor.cpp)
+target_sources(KBass PRIVATE Source/PluginProcessor.cpp Source/PluginEditor.cpp Source/UserPresets.cpp Source/PresetBrowser.cpp)
 target_compile_definitions(KBass PUBLIC JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0
     JUCE_VST3_CAN_REPLACE_VST2=0 JUCE_DISPLAY_SPLASH_SCREEN=0 JUCE_REPORT_APP_USAGE=0
     JUCE_USE_MP3AUDIOFORMAT=0)
@@ -45,4 +45,11 @@ if(KBASS_BUILD_TESTS)
     target_link_libraries(KBassProcessorTests PRIVATE KBass)
     add_test(NAME processor-state-and-ui COMMAND KBassProcessorTests)
     set_tests_properties(processor-state-and-ui PROPERTIES TIMEOUT 60)
+    add_executable(KBassUserPresetTests Tests/UserPresetsTests.cpp)
+    target_include_directories(KBassUserPresetTests PRIVATE Source "${juce_SOURCE_DIR}/modules"
+        "${CMAKE_CURRENT_BINARY_DIR}/KBass_artefacts/JuceLibraryCode")
+    target_compile_definitions(KBassUserPresetTests PRIVATE JUCE_GLOBAL_MODULE_SETTINGS_INCLUDED=1)
+    target_link_libraries(KBassUserPresetTests PRIVATE KBass)
+    add_test(NAME user-presets COMMAND KBassUserPresetTests)
+    set_tests_properties(user-presets PROPERTIES TIMEOUT 60)
 endif()

@@ -16,10 +16,52 @@ void configure(juce::Slider& s,juce::Component* parent) {
     s.setSliderStyle(juce::Slider::RotaryVerticalDrag);
     s.setTextBoxStyle(juce::Slider::NoTextBox,false,0,0);
     s.setRotaryParameters(float(kbass::pi*1.25),float(kbass::pi*2.75),true);
-    s.setMouseDragSensitivity(280);
+    s.setMouseDragSensitivity(420);
     s.setPopupDisplayEnabled(true,true,parent);
     s.setWantsKeyboardFocus(false);
 }
+}
+
+double SmoothDial::proportionOfLengthToValue(double proportion) {
+    if(fineCutoff && getMinimum()>0)
+        return getMinimum()*std::exp(std::log(getMaximum()/getMinimum())*juce::jlimit(0.0,1.0,proportion));
+    return juce::Slider::proportionOfLengthToValue(proportion);
+}
+double SmoothDial::valueToProportionOfLength(double value) {
+    if(fineCutoff && getMinimum()>0)
+        return std::log(juce::jlimit(getMinimum(),getMaximum(),value)/getMinimum())/std::log(getMaximum()/getMinimum());
+    return juce::Slider::valueToProportionOfLength(value);
+}
+void SmoothDial::mouseDown(const juce::MouseEvent& e) {
+    actualPosition=virtualPosition=e.position;
+    juce::Slider::mouseDown(e);
+}
+void SmoothDial::mouseDrag(const juce::MouseEvent& e) {
+    const float scale=e.mods.isShiftDown() && !bool(getProperties()["selector"]) ? .1f : 1.0f;
+    virtualPosition+=(e.position-actualPosition)*scale;
+    actualPosition=e.position;
+    // Use JUCE's drag lifecycle to keep popup values, mouse capture and host
+    // automation gestures balanced, even when Shift is changed mid-drag.
+    juce::Slider::mouseDrag(e.withNewPosition(virtualPosition));
+}
+void SmoothDial::mouseUp(const juce::MouseEvent& e) { juce::Slider::mouseUp(e.withNewPosition(virtualPosition)); }
+void SmoothDial::mouseWheelMove(const juce::MouseEvent& e,const juce::MouseWheelDetails& wheel) {
+    auto adjusted=wheel;
+    const float scale=(fineCutoff ? .04f : .2f)*(e.mods.isShiftDown() ? .1f : 1.0f);
+    adjusted.deltaX*=scale; adjusted.deltaY*=scale;
+    juce::Slider::mouseWheelMove(e,adjusted);
+}
+bool SmoothDial::keyPressed(const juce::KeyPress& key) {
+    const int code=key.getKeyCode();
+    if(fineCutoff && isEnabled() && !key.getModifiers().isCtrlDown() && !key.getModifiers().isAltDown()
+       && !key.getModifiers().isCommandDown() && (code==juce::KeyPress::upKey || code==juce::KeyPress::rightKey
+       || code==juce::KeyPress::downKey || code==juce::KeyPress::leftKey)) {
+        const double direction=(code==juce::KeyPress::upKey || code==juce::KeyPress::rightKey) ? 1.0 : -1.0;
+        const juce::Slider::ScopedDragNotification gesture(*this);
+        setValue(getValue()+direction*(key.getModifiers().isShiftDown() ? .1 : 1.0),juce::sendNotificationSync);
+        return true;
+    }
+    return juce::Slider::keyPressed(key);
 }
 
 HardwareLook::HardwareLook():chrome(juce::Image::ARGB,256,256,true) {
@@ -29,6 +71,13 @@ HardwareLook::HardwareLook():chrome(juce::Image::ARGB,256,256,true) {
     setColour(juce::PopupMenu::backgroundColourId,juce::Colour(0xff282b28));
     setColour(juce::PopupMenu::textColourId,ink);
     setColour(juce::PopupMenu::highlightedBackgroundColourId,juce::Colour(0xff545b50));
+    setColour(juce::ComboBox::textColourId,ink);
+    setColour(juce::ComboBox::backgroundColourId,juce::Colour(0xff252923));
+    setColour(juce::AlertWindow::backgroundColourId,juce::Colour(0xff33382f));
+    setColour(juce::AlertWindow::textColourId,ink);
+    setColour(juce::TextEditor::backgroundColourId,juce::Colour(0xff20241e));
+    setColour(juce::TextEditor::textColourId,ink);
+    setColour(juce::TextEditor::outlineColourId,line);
     for(int y=0;y<256;++y) for(int x=0;x<256;++x) {
         const double dx=(x-127.5)/127.5,dy=(y-127.5)/127.5,r=std::hypot(dx,dy);
         if(r>1) continue;
@@ -37,6 +86,14 @@ HardwareLook::HardwareLook():chrome(juce::Image::ARGB,256,256,true) {
         const double edge=r>.94 ? 30*(1-r)/.06-17 : 0;
         const int shade=juce::jlimit(36,238,int(cone+edge+3*std::sin(r*360)));
         chrome.setPixelAt(x,y,juce::Colour::fromRGB(juce::uint8(shade),juce::uint8(shade+1),juce::uint8(std::min(255,shade+2))));
+    }
+    juce::Graphics scuffs(chrome);
+    juce::Path face; face.addEllipse(2,2,252,252); scuffs.reduceClipRegion(face);
+    juce::Random wear(0x4348524f);
+    for(int i=0;i<32;++i) {
+        const float x=25+wear.nextFloat()*200,y=25+wear.nextFloat()*200;
+        scuffs.setColour(juce::Colours::black.withAlpha(.025f+wear.nextFloat()*.045f));
+        scuffs.drawLine(x,y,x+3+wear.nextFloat()*20,y-1+wear.nextFloat()*2,.7f);
     }
 }
 void HardwareLook::drawRotarySlider(juce::Graphics& g,int x,int y,int width,int height,float pos,float,float,juce::Slider& slider) {
@@ -105,22 +162,26 @@ void HardwareLook::drawToggleButton(juce::Graphics& g,juce::ToggleButton& button
 void HardwareLook::drawButtonBackground(juce::Graphics& g,juce::Button& b,const juce::Colour&,bool hover,bool down) {
     const auto r=b.getLocalBounds().toFloat().reduced(1);
     juce::Path p; p.addRoundedRectangle(r,3);
-    juce::DropShadow(juce::Colours::black.withAlpha(.8f),4,{2,3}).drawForPath(g,p);
-    g.setGradientFill(juce::ColourGradient(juce::Colour(down ? 0xff73766c : 0xffc4c5b9),0,0,
-        juce::Colour(hover ? 0xff8c9283 : 0xff797d70),r.getWidth(),r.getHeight(),false));
+    juce::DropShadow(juce::Colours::black.withAlpha(.65f),3,{1,2}).drawForPath(g,p);
+    g.setGradientFill(juce::ColourGradient(juce::Colour(down ? 0xff747c6c : 0xffb5b9a9),0,0,
+        juce::Colour(hover ? 0xff939b88 : 0xff747c6b),0,r.getHeight(),false));
     g.fillRoundedRectangle(r,3);
     g.setColour(juce::Colour(0xffe3e2d0).withAlpha(.5f)); g.drawRoundedRectangle(r.reduced(1),3,1);
-    for(const auto point:std::array<juce::Point<float>,4>{{{6,6},{r.getWidth()-4,6},{6,r.getHeight()-4},{r.getWidth()-4,r.getHeight()-4}}}) {
-        g.setColour(juce::Colour(0xff2c332e)); g.fillEllipse(point.x-2,point.y-2,4,4);
-        g.setColour(juce::Colour(0xffbcc3b4)); g.drawLine(point.x-1,point.y-1,point.x+1,point.y+1);
-    }
 }
 void HardwareLook::drawButtonText(juce::Graphics& g,juce::TextButton& b,bool,bool) {
-    g.setColour(juce::Colour(0xff282c27)); g.setFont(juce::Font(juce::FontOptions("Georgia",29,juce::Font::bold|juce::Font::italic)));
-    g.drawText("KB",5,4,b.getWidth()-10,38,juce::Justification::centred);
-    g.setFont(juce::Font(juce::FontOptions(11,juce::Font::bold)));
-    g.drawFittedText(b.getButtonText(),9,43,b.getWidth()-18,18,juce::Justification::centred,1);
+    g.setColour(juce::Colour(0xff20261e)); g.setFont(juce::Font(juce::FontOptions(13,juce::Font::bold)));
+    g.drawFittedText(b.getButtonText(),b.getLocalBounds().reduced(6,2),juce::Justification::centred,1);
 }
+void HardwareLook::drawComboBox(juce::Graphics& g,int width,int height,bool down,int,int,int,int,juce::ComboBox&) {
+    const auto r=juce::Rectangle<float>(.5f,.5f,float(width)-1,float(height)-1);
+    g.setGradientFill(juce::ColourGradient(juce::Colour(down ? 0xff1c211a : 0xff232820),0,0,juce::Colour(0xff3c4237),0,float(height),false));
+    g.fillRoundedRectangle(r,3);
+    g.setColour(line.withAlpha(.55f)); g.drawRoundedRectangle(r,3,1);
+    const float x=float(width)-15,y=float(height)*.5f;
+    juce::Path arrow; arrow.startNewSubPath(x-4,y-2); arrow.lineTo(x,y+2); arrow.lineTo(x+4,y-2);
+    g.setColour(ink); g.strokePath(arrow,juce::PathStrokeType(1.4f));
+}
+juce::Font HardwareLook::getComboBoxFont(juce::ComboBox&) { return juce::Font(juce::FontOptions(13)); }
 
 KBassEditor::KBassEditor(KBassProcessor& p):AudioProcessorEditor(p),processor(p) {
     setLookAndFeel(&hardware); setOpaque(true); setWantsKeyboardFocus(false);
@@ -147,24 +208,51 @@ KBassEditor::KBassEditor(KBassProcessor& p):AudioProcessorEditor(p),processor(p)
     addAndMakeVisible(envelopeTarget);
     targetAttachment=std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(processor.parameters,"envTarget",envelopeTarget);
     envelopeTarget.onClick=[this] { bindEnvelope(); };
-    presetButton.setName("Factory presets"); presetButton.setWantsKeyboardFocus(false);
-    presetButton.setButtonText(processor.getProgramName(processor.getCurrentProgram()).substring(4).toUpperCase());
-    presetButton.setTooltip("Choose a factory preset"); presetButton.onClick=[this] { showPresets(); };
-    addAndMakeVisible(presetButton);
+    factoryPresets.setName("FACTORY PRESETS"); factoryPresets.setComponentID("factoryPresets");
+    userPresets.setName("USER PRESETS"); userPresets.setComponentID("userPresets");
+    factoryPresets.setWantsKeyboardFocus(false); userPresets.setWantsKeyboardFocus(false);
+    factoryPresets.setTooltip("Choose a factory preset"); userPresets.setTooltip("Choose one of your saved sounds");
+    factoryPresets.setTextWhenNothingSelected("Select factory preset");
+    userPresets.setTextWhenNothingSelected("No user preset selected");
+    factoryPresets.onChange=[this] {
+        const int id=factoryPresets.getSelectedId();
+        if(id>=1 && id<=processor.getNumPrograms()) { processor.setCurrentProgram(id-1); syncPresetSelection(); }
+    };
+    userPresets.beforePopup=[this] { refreshPresetMenus(); };
+    userPresets.onChange=[this] {
+        const int index=userPresets.getSelectedId()-1;
+        if(juce::isPositiveAndBelow(index,int(userPresetFiles.size()))) {
+            const auto result=processor.loadUserPreset(userPresetFiles[size_t(index)].file);
+            if(result.failed()) showPresetError(result.getErrorMessage());
+            syncPresetSelection();
+        }
+    };
+    savePreset.setName("SAVE PRESET"); savePreset.setComponentID("savePreset");
+    savePreset.setWantsKeyboardFocus(false); savePreset.setTooltip("Save the current sound as a user preset");
+    savePreset.onClick=[this] { beginSavePreset(); };
+    addAndMakeVisible(factoryPresets); addAndMakeVisible(userPresets); addAndMakeVisible(savePreset);
+    refreshPresetMenus();
     bindEnvelope(); makeTexture(); setSize(1108,780); startTimerHz(20);
 }
 KBassEditor::~KBassEditor() {
-    stopTimer(); envelopeTarget.onClick=nullptr; presetButton.onClick=nullptr;
+    stopTimer(); envelopeTarget.onClick=nullptr; savePreset.onClick=nullptr;
+    factoryPresets.onChange=nullptr; userPresets.onChange=nullptr; userPresets.beforePopup=nullptr;
+    if(presetDialog) { presetDialog->setLookAndFeel(nullptr); presetDialog->exitModalState(0); }
     setLookAndFeel(nullptr);
 }
 void KBassEditor::addDial(const char* id,const char* name,const char* help,bool selector,bool large) {
-    Dial dial; dial.id=id; dial.slider=std::make_unique<juce::Slider>();
+    Dial dial; dial.id=id; dial.slider=std::make_unique<SmoothDial>();
     auto& s=*dial.slider; configure(s,this); s.setName(name); s.setComponentID(id); s.setTooltip(help);
     s.getProperties().set("selector",selector); s.getProperties().set("large",large);
     addAndMakeVisible(s);
     dial.attachment=std::make_unique<Attachment>(processor.parameters,id,s);
     s.setDoubleClickReturnValue(true,processor.parameters.getParameter(id)->convertFrom0to1(processor.parameters.getParameter(id)->getDefaultValue()));
     if(selector) s.setMouseDragSensitivity(100);
+    if(dial.id=="cutoff") {
+        static_cast<SmoothDial&>(s).enableFineCutoff();
+        s.textFromValueFunction=[](double value) { return juce::String(value,value<100 ? 2 : 1)+" Hz"; };
+        s.valueFromTextFunction=[](const juce::String& value) { return value.getDoubleValue()*(value.containsIgnoreCase("kHz") ? 1000 : 1); };
+    }
     dials.push_back(std::move(dial));
 }
 juce::Slider* KBassEditor::findControl(const juce::String& id) {
@@ -194,20 +282,10 @@ void KBassEditor::bindEnvelope() {
 }
 void KBassEditor::timerCallback() {
     bindEnvelope();
-    const auto name=processor.getProgramName(processor.getCurrentProgram()).substring(4).toUpperCase();
-    if(presetButton.getButtonText()!=name) presetButton.setButtonText(name);
+    syncPresetSelection();
     const float level=processor.peak.load(std::memory_order_relaxed);
     const float next=std::max(level,meter*.85f);
     if(std::abs(next-meter)>.001f) { meter=next; repaint(920,290,115,95); }
-}
-void KBassEditor::showPresets() {
-    juce::PopupMenu menu;
-    for(int i=0;i<processor.getNumPrograms();++i)
-        menu.addItem(i+1,processor.getProgramName(i),true,processor.getCurrentProgram()==i);
-    const juce::Component::SafePointer<KBassEditor> safe(this);
-    menu.showMenuAsync(juce::PopupMenu::Options{}.withTargetComponent(&presetButton),[safe](int choice) {
-        if(safe && choice>0) safe->processor.setCurrentProgram(choice-1);
-    });
 }
 void KBassEditor::makeTexture() {
     texture=juce::Image(juce::Image::RGB,1108,780,false);
@@ -221,10 +299,35 @@ void KBassEditor::makeTexture() {
         } else {
             const double nx=(x-554)/540.0,ny=(y-390)/430.0;
             const double vignette=15*(nx*nx+ny*ny);
-            const double brushed=1.8*std::sin(x*.91)+.8*std::sin(x*2.7);
-            const int shade=juce::jlimit(30,112,int(91-vignette+brushed+random.nextInt(12)-6));
+            const double brushed=1.1*std::sin(x*.91)+.6*std::sin(x*2.7);
+            const double patina=-3.0-6.5*std::sin(x*.013+std::sin(y*.009))*std::sin(y*.016-x*.004)
+                -4.0*std::cos(x*.031-y*.012+std::sin(y*.019));
+            const int shade=juce::jlimit(30,112,int(89-vignette+brushed+patina+random.nextInt(10)-5));
             texture.setPixelAt(x,y,juce::Colour::fromRGB(juce::uint8(shade),juce::uint8(shade+2),juce::uint8(shade)));
         }
+    }
+    juce::Graphics wear(texture);
+    wear.reduceClipRegion(60,7,988,763);
+    juce::Random marks(0x504154494e41);
+    for(int i=0;i<13;++i) {
+        const float x=80+marks.nextFloat()*920,y=24+marks.nextFloat()*700;
+        const float radius=35+marks.nextFloat()*100;
+        wear.setGradientFill(juce::ColourGradient(juce::Colours::black.withAlpha(.065f+marks.nextFloat()*.065f),x,y,
+            juce::Colours::transparentBlack,x+radius,y,true));
+        wear.fillEllipse(x-radius,y-radius*.55f,radius*2,radius*1.1f);
+    }
+    for(int i=0;i<190;++i) {
+        const float x=65+marks.nextFloat()*970,y=12+marks.nextFloat()*746;
+        const float length=(i<14 ? 30.0f : 2.0f)+marks.nextFloat()*(i<14 ? 45.0f : 21.0f);
+        const float rise=(marks.nextFloat()-.5f)*5;
+        wear.setColour(juce::Colours::black.withAlpha(.12f+marks.nextFloat()*.09f));
+        wear.drawLine(x,y,x+length,y+rise,.65f);
+        wear.setColour(juce::Colour(0xffd1d2bf).withAlpha(.065f+marks.nextFloat()*.065f));
+        wear.drawLine(x,y+.8f,x+length,y+rise+.8f,.45f);
+    }
+    for(int i=0;i<230;++i) {
+        wear.setColour(juce::Colours::black.withAlpha(.035f+marks.nextFloat()*.08f));
+        wear.fillEllipse(65+marks.nextFloat()*970,10+marks.nextFloat()*748,1+marks.nextFloat()*2.2f,.7f+marks.nextFloat()*1.3f);
     }
 }
 void KBassEditor::drawPanel(juce::Graphics& g,juce::Rectangle<float> r,const juce::String& title,float labelX) {
@@ -293,8 +396,8 @@ void KBassEditor::paint(juce::Graphics& g) {
     }
     g.setFont(juce::Font(juce::FontOptions("Georgia",48,juce::Font::bold|juce::Font::italic)));
     g.setColour(ink.withAlpha(.95f)); g.drawText("KBass",777,716,266,56,juce::Justification::centredRight);
-    g.setFont(juce::Font(juce::FontOptions(10,juce::Font::plain)));
-    g.setColour(ink.withAlpha(.55f)); g.drawText("SINE EDITION  /  INDEPENDENT AUDIO",76,738,350,17,juce::Justification::centredLeft);
+    text(g,"FACTORY PRESETS",380,722,205,17,11,juce::Justification::centredLeft);
+    text(g,"USER PRESETS",596,722,205,17,11,juce::Justification::centredLeft);
     for(float x:{24.0f,1083.0f}) { drawScrew(g,x,38); drawScrew(g,x,728); }
 }
 void KBassEditor::resized() {
@@ -306,5 +409,7 @@ void KBassEditor::resized() {
     place("lfoWave",681,331,70,70); place("lfoSpeed",780,316,98,98);
     place("cutoff",129,527,158,158); place("resonance",351,559,98,98);
     place("filterEnv",481,559,98,98); place("filterLfo",611,559,98,98); place("volume",821,527,158,158);
-    presetButton.setBounds(913,400,129,76);
+    factoryPresets.setBounds(380,741,205,27);
+    userPresets.setBounds(596,741,205,27);
+    savePreset.setBounds(812,741,68,27);
 }

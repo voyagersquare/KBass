@@ -1,4 +1,4 @@
-# KBass 0.1.1 — Independent Audio
+# KBass 0.2.0 — Independent Audio
 
 **Windows 10/11 x64 VST3 bass instrument.** Dva audio oscilatora s izborom
 **SAW / SQUARE / SINE**, dva zasebna ADSR-a i sučelje nadahnuto priloženom
@@ -6,11 +6,16 @@ BASSIMO referencom: tamni metal, drvene stranice i kromirani potenciometri.
 Raspored je 1108 × 780 piksela, uz izvorno nacrtanu grafiku i naziv KBass.
 Ovo je novi instrument s vlastitim DSP-om, ne izvorni WOK/BASSIMO plugin.
 
+Verzija 0.2.0 dodaje odvojene **FACTORY PRESETS** i **USER PRESETS** izbornike
+u donjoj traci te **SAVE** za spremanje vlastitih zvukova. KB pločica i sitni
+natpis dolje lijevo su uklonjeni. Metal ima umjerenu patinu i fine ogrebotine.
+Cutoff je precizniji pri povlačenju i ima dodatno zaglađivanje u audio engineu.
+
 ## Testni VST3 ZIP
 
 Gotove datoteke nakon uspješnog Windows builda nalaze se u
 [Releases](https://github.com/voyagersquare/KBass/releases).
-Preuzmi **KBass-0.1.1-Windows-x64-VST3.zip**. Ova testna verzija isporučuje
+Preuzmi **KBass-0.2.0-Windows-x64-VST3.zip**. Ova testna verzija isporučuje
 se bez novog Windows instalera. Zatvori DAW i iz ZIP-a kopiraj cijelu mapu
 `KBass.vst3` u `C:\Program Files\Common Files\VST3`, zamjenjujući prethodni KBass.
 U Abletonu uključi **Use VST3 Plug-In System Folders**, odaberi **Rescan**,
@@ -22,9 +27,8 @@ Unutarnju `.vst3` datoteku nemoj odvajati od paketa. Nije potrebno instalirati
 Visual Studio za korištenje. Ako Ableton još prikazuje staru grupu proizvođača,
 drži Alt dok klikneš Rescan kako bi ponovno skenirao plugine.
 
-Verzija 0.1.1 mijenja naziv proizvođača iz Voyager Square u Independent Audio
-i usklađuje natpis na sučelju. Postojeći VST3 identifikatori, parametri, preseti
-i audio engine zadržani su za kompatibilnost sa spremljenim projektima.
+Proizvođač ostaje **Independent Audio**. Postojeći VST3 identifikatori i svih
+23 parametra zadržani su, a stanje projekata iz verzija 0.1.0 i 0.1.1 se učitava.
 
 ## Kontrole
 
@@ -37,7 +41,18 @@ i audio engine zadržani su za kompatibilnost sa spremljenim projektima.
 | LFO | WAVE: saw, triangle, square; SPEED: 0.03–30 Hz |
 | FILTER | CUTOFF: 20 Hz–18 kHz; RESO; ENV: 0–6 oktava; LFO: 0–4 oktave |
 | VOLUME | Izlazna glasnoća; minimum potpuno utišava izlaz |
-| Metalna KB pločica | Izbor između šest tvorničkih preseta |
+| FACTORY PRESETS | Izbornik šest tvorničkih preseta, u donjoj traci |
+| USER PRESETS | Susjedni izbornik trajno spremljenih korisničkih zvukova |
+| SAVE | Unesi ime i spremi trenutni zvuk kao korisnički preset |
+
+Klikni **SAVE**, upiši ime i potvrdi spremanje. Zvuk se odmah pojavljuje u
+**USER PRESETS**. Za postojeće ime plugin pita želiš li zamijeniti taj preset.
+Ponovni izbor već odabranog factory ili user preseta vraća spremljeni zvuk.
+Korisnički preseti čuvaju se kao `.kbasspreset` datoteke u
+`%APPDATA%\Independent Audio\KBass\Presets`. Mogu se kopirati za backup.
+DAW projekt sprema cijeli zvuk i naziv odabranog preseta, pa njegov povrat ne
+ovisi o dostupnosti izvorne preset datoteke. Čitanje i spremanje datoteka odvija
+se izvan audio obrade.
 
 **AMP i FILT pamte zasebne vrijednosti i oba su uvijek aktivna.** Prekidač mijenja
 samo četiri prikazane kontrole. Ne isključuje amplitudnu ovojnicu.
@@ -50,6 +65,13 @@ Povuci potenciometar gore/dolje. **Shift + povlačenje** daje finiju promjenu,
 ili je pomičeš prikazuje se vrijednost. Sve audio kontrole podržavaju DAW
 automatizaciju; izbor AMP/FILT je spremljena postavka sučelja.
 Patch, izbor valova, obje ovojnice i preset spremaju se u DAW projekt.
+
+Cutoff se sada pomiče ravnomjerno u odnosu na frekvenciju: jedan piksel daje
+približno 0.31% promjene kroz cijeli raspon. **Shift + povlačenje** i **Shift +
+kotačić** daju još deset puta finiji korak. Promjena Shifta tijekom povlačenja
+ne uzrokuje skok vrijednosti. Audio koristi dvostupanjsko zaglađivanje cutoffa
+u oktavnom prostoru; filter envelope i LFO ostaju brzi. Kontrole ADSR-a, pitch
+bend, glasnoća, mix i dubine modulacije također imaju zaglađene prijelaze.
 
 ## Audio i MIDI
 
