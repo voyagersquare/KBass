@@ -3,7 +3,7 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'Scripts\PortableZip.ps1')
 $root = $PSScriptRoot
 Set-Location $root
-$version = '0.1.0'
+$version = '0.1.1'
 $module = Join-Path $root 'build\windows-x64\KBass_artefacts\Release\VST3\KBass.vst3'
 $binary = Join-Path $module 'Contents\x86_64-win\KBass.vst3'
 if (!(Test-Path $binary) -or (Get-Item $binary).Length -eq 0) { throw 'Windows x64 VST3 module is missing.' }
@@ -30,6 +30,6 @@ if (!$SkipInstaller) {
     & $compiler "/DAppVersion=$version" "/DStageDir=$stage" "/DOutputDir=$packages" (Join-Path $root 'Installer\KBass.iss')
     if ($LASTEXITCODE -ne 0) { throw 'Installer compilation failed.' }
 }
-$info = [ordered]@{ version=$version; sourceCommit=(git rev-parse HEAD); format='VST3'; architecture='Windows x64'; standalone=$false }
+$info = [ordered]@{ version=$version; sourceCommit=(git rev-parse HEAD); manufacturer='Independent Audio'; format='VST3'; architecture='Windows x64'; standalone=$false; installerBuilt=(-not $SkipInstaller) }
 $info | ConvertTo-Json | Set-Content (Join-Path $packages 'release-info.json') -Encoding UTF8
 Write-Host "Packages prepared in $packages"

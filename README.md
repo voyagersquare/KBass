@@ -1,4 +1,4 @@
-# KBass 0.1.0
+# KBass 0.1.1 — Independent Audio
 
 **Windows 10/11 x64 VST3 bass instrument.** Dva audio oscilatora s izborom
 **SAW / SQUARE / SINE**, dva zasebna ADSR-a i sučelje nadahnuto priloženom
@@ -6,21 +6,25 @@ BASSIMO referencom: tamni metal, drvene stranice i kromirani potenciometri.
 Raspored je 1108 × 780 piksela, uz izvorno nacrtanu grafiku i naziv KBass.
 Ovo je novi instrument s vlastitim DSP-om, ne izvorni WOK/BASSIMO plugin.
 
-## Preuzimanje i instalacija
+## Testni VST3 ZIP
 
 Gotove datoteke nakon uspješnog Windows builda nalaze se u
 [Releases](https://github.com/voyagersquare/KBass/releases).
-Preuzmi **KBass-0.1.0-Windows-x64-Setup.exe**, zatvori DAW i pokreni instalaciju.
-Instalira se VST3 instrument u `C:\Program Files\Common Files\VST3\KBass.vst3`.
+Preuzmi **KBass-0.1.1-Windows-x64-VST3.zip**. Ova testna verzija isporučuje
+se bez novog Windows instalera. Zatvori DAW i iz ZIP-a kopiraj cijelu mapu
+`KBass.vst3` u `C:\Program Files\Common Files\VST3`, zamjenjujući prethodni KBass.
 U Abletonu uključi **Use VST3 Plug-In System Folders**, odaberi **Rescan**,
-zatim stavi KBass na MIDI traku i uključi Monitor In ili record-arm.
+zatim pod proizvođačem **Independent Audio** odaberi **KBass** i stavi ga na
+MIDI traku. Uključi Monitor In ili record-arm.
 Plugin svira preko MIDI kontrolera ili DAW-ove MIDI tipkovnice.
 
-Alternativa je **KBass-0.1.0-Windows-x64-VST3.zip**: kopiraj cijelu mapu
-`KBass.vst3` u navedenu sistemsku VST3 mapu. Unutarnju `.vst3` datoteku nemoj
-odvajati od paketa. Nije potrebno instalirati Visual Studio za korištenje.
-Instaler ne dodaje standalone aplikaciju ni prečace. Deinstalira se kroz
-Windows Settings → Apps → Installed apps → KBass.
+Unutarnju `.vst3` datoteku nemoj odvajati od paketa. Nije potrebno instalirati
+Visual Studio za korištenje. Ako Ableton još prikazuje staru grupu proizvođača,
+drži Alt dok klikneš Rescan kako bi ponovno skenirao plugine.
+
+Verzija 0.1.1 mijenja naziv proizvođača iz Voyager Square u Independent Audio
+i usklađuje natpis na sučelju. Postojeći VST3 identifikatori, parametri, preseti
+i audio engine zadržani su za kompatibilnost sa spremljenim projektima.
 
 ## Kontrole
 
@@ -70,10 +74,10 @@ Na Windowsu instaliraj Visual Studio s **Desktop development with C++** i
 određenom commitu; prvi build zahtijeva internet.
 
 GitHub Actions automatski gradi VST3 na Windowsu, izvršava DSP i processor/UI
-testove, snima stvarni editor, provjerava Windows x64 modul te izrađuje ZIP
-i Setup.exe. Test instalacije provjerava instalirani modul i deinstalaciju
-na privremenom Windows runneru. Paketi uključuju SHA-256 i odgovarajući izvorni
-kod KBass-a i JUCE-a.
+testove, snima stvarni editor, provjerava Windows x64 modul i proizvođača
+Independent Audio te izrađuje testni VST3 ZIP. Pokreće se i pluginval level 5.
+Novi instaler se ne izrađuje ni pokreće. Paketi uključuju SHA-256 i odgovarajući
+izvorni kod KBass-a i JUCE-a.
 
 Za samostalne DSP testove bez JUCE-a:
 

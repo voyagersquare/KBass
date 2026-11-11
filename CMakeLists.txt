@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(KBass VERSION 0.1.0 LANGUAGES C CXX)
+project(KBass VERSION 0.1.1 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 option(KBASS_DSP_ONLY "Build portable audio engine tests without JUCE" OFF)
@@ -22,7 +22,7 @@ FetchContent_Declare(JUCE
     URL_HASH SHA256=20b740351cc030086951d87614bc08b42d072f1e4db68db1ef1d988e66dbbdbe
     DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
 FetchContent_MakeAvailable(JUCE)
-juce_add_plugin(KBass COMPANY_NAME "Voyager Square" BUNDLE_ID "audio.voyagersquare.kbass"
+juce_add_plugin(KBass COMPANY_NAME "Independent Audio" BUNDLE_ID "audio.voyagersquare.kbass"
     PLUGIN_MANUFACTURER_CODE VySq PLUGIN_CODE KBss PRODUCT_NAME "KBass"
     FORMATS VST3 IS_SYNTH TRUE NEEDS_MIDI_INPUT TRUE NEEDS_MIDI_OUTPUT FALSE
     IS_MIDI_EFFECT FALSE EDITOR_WANTS_KEYBOARD_FOCUS FALSE

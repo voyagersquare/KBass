@@ -294,7 +294,7 @@ void KBassEditor::paint(juce::Graphics& g) {
     g.setFont(juce::Font(juce::FontOptions("Georgia",48,juce::Font::bold|juce::Font::italic)));
     g.setColour(ink.withAlpha(.95f)); g.drawText("KBass",777,716,266,56,juce::Justification::centredRight);
     g.setFont(juce::Font(juce::FontOptions(10,juce::Font::plain)));
-    g.setColour(ink.withAlpha(.55f)); g.drawText("SINE EDITION  /  VOYAGER SQUARE",76,738,350,17,juce::Justification::centredLeft);
+    g.setColour(ink.withAlpha(.55f)); g.drawText("SINE EDITION  /  INDEPENDENT AUDIO",76,738,350,17,juce::Justification::centredLeft);
     for(float x:{24.0f,1083.0f}) { drawScrew(g,x,38); drawScrew(g,x,728); }
 }
 void KBassEditor::resized() {

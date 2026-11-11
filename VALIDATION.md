@@ -14,10 +14,11 @@ The Linux VST3 passes pluginval 1.0.4 strictness level 5, including state,
 automation, repeated editor opening and audio processing at 44.1/48/96 kHz.
 The Windows workflow also requires pluginval level 5 before packaging.
 
-Each downloadable Windows package is gated by a native MSVC build, the DSP and
-processor tests, a real native-editor capture, Windows pluginval, PE x64 checks,
-installer compilation, checksum comparison of the installed module and a
-successful uninstall. Logs and SHA-256 checks accompany the release.
+The 0.1.1 test ZIP is gated by a native MSVC build, the DSP and processor tests,
+a real native-editor capture, Windows pluginval and PE x64 checks. The compiled
+module must report Independent Audio for every VST3 class, while retaining the
+three existing class IDs. This version does not build or execute an installer.
+Logs and SHA-256 checks accompany the test release.
 
 Run results: https://github.com/voyagersquare/KBass/actions
 
