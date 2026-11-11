@@ -38,8 +38,12 @@ jobs:
           Expand-Archive $archive $folder -Force
           $validator = (Get-ChildItem $folder -Filter pluginval.exe -Recurse | Select-Object -First 1).FullName
           $module = (Resolve-Path '.\build\windows-x64\KBass_artefacts\Release\VST3\KBass.vst3').Path
-          & $validator --strictness-level 5 --timeout-ms 60000 --output-dir '.\build\pluginval' --validate $module
-          if ($LASTEXITCODE -ne 0) { throw 'Windows VST3 validation failed.' }
+          $logDir = Join-Path (Get-Location) 'build\pluginval'
+          $arguments = @('--strictness-level','5','--timeout-ms','60000','--output-dir',('"' + $logDir + '"'),'--validate',('"' + $module + '"'))
+          $process = Start-Process -FilePath $validator -ArgumentList $arguments -Wait -PassThru -NoNewWindow
+          if ($process.ExitCode -ne 0) { throw "Windows VST3 validation failed: $($process.ExitCode)" }
+          $logs = Get-ChildItem $logDir -Filter '*.txt'
+          if (!$logs -or !(Select-String -Path $logs.FullName -Pattern '^SUCCESS$' -Quiet)) { throw 'Missing successful pluginval report.' }
       - name: Install pinned Inno Setup compiler
         shell: powershell
         run: |
