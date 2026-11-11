@@ -3,7 +3,7 @@
 namespace {
 const juce::Colour ink{0xffc4c4b7},line{0xff92958a};
 juce::Font lettering(float size,bool bold=true) {
-    return juce::Font(juce::FontOptions("Georgia",size,bold ? juce::Font::bold : juce::Font::plain));
+    return juce::Font(juce::FontOptions(juce::Font::getDefaultSerifFontName(),size,bold ? juce::Font::bold : juce::Font::plain));
 }
 void text(juce::Graphics& g,const juce::String& value,float x,float y,float w,float h,float size,
           juce::Justification justification=juce::Justification::centred) {
@@ -148,6 +148,7 @@ KBassEditor::KBassEditor(KBassProcessor& p):AudioProcessorEditor(p),processor(p)
     targetAttachment=std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(processor.parameters,"envTarget",envelopeTarget);
     envelopeTarget.onClick=[this] { bindEnvelope(); };
     presetButton.setName("Factory presets"); presetButton.setWantsKeyboardFocus(false);
+    presetButton.setButtonText(processor.getProgramName(processor.getCurrentProgram()).substring(4).toUpperCase());
     presetButton.setTooltip("Choose a factory preset"); presetButton.onClick=[this] { showPresets(); };
     addAndMakeVisible(presetButton);
     bindEnvelope(); makeTexture(); setSize(1108,780); startTimerHz(20);
@@ -229,7 +230,7 @@ void KBassEditor::makeTexture() {
 void KBassEditor::drawPanel(juce::Graphics& g,juce::Rectangle<float> r,const juce::String& title,float labelX) {
     g.setColour(juce::Colour(0xffd7d9c6).withAlpha(.025f)); g.fillRoundedRectangle(r,17);
     g.setColour(line.withAlpha(.76f)); g.drawRoundedRectangle(r,17,2.6f);
-    const auto width=lettering(25).getStringWidthFloat(title)+14;
+    const float width=title=="ENVELOPE" ? 190.0f : title=="OSC1/2" ? 140.0f : title=="FILTER" ? 130.0f : 90.0f;
     // Restore the same background pixels behind each interrupted border label.
     g.drawImage(texture,int(labelX-7),int(r.getY()-13),int(width),27,int(labelX-7),int(r.getY()-13),int(width),27);
     text(g,title,labelX-3,r.getY()-17,width-8,33,25);
@@ -279,7 +280,7 @@ void KBassEditor::paint(juce::Graphics& g) {
     for(const auto center:std::array<juce::Point<float>,2>{{{208,606},{900,606}}})
         for(int n=0;n<=4;++n) {
             const float a=float(kbass::pi*1.25+n*kbass::pi*1.5/4);
-            text(g,juce::String(n*3),center.x+std::sin(a)*91-14,center.y-std::cos(a)*91-11,28,23,15);
+            text(g,juce::String(n*3),center.x+std::sin(a)*91-14,center.y-std::cos(a)*91-11-((n==0 || n==4) ? 12.0f : 0.0f),28,23,15);
         }
     for(int i=0;i<4;++i) {
         const auto r=juce::Rectangle<float>(922,295+i*24.0f,109,14);

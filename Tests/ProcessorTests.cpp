@@ -58,12 +58,13 @@ int main(int argc,char** argv) {
                 require(!controls[a]->getBounds().intersects(controls[b]->getBounds()),"interactive hit areas do not overlap");
         }
         if(i==0 && argc>1) {
-            restored.setCurrentProgram(0); editor->selectEnvelope(false);
-            auto image=editor->createComponentSnapshot(editor->getLocalBounds(),true,1);
+            KBassProcessor pictured;
+            std::unique_ptr<juce::AudioProcessorEditor> picture(pictured.createEditor());
+            auto image=picture->createComponentSnapshot(picture->getLocalBounds(),true,1);
             juce::File output=juce::File::getCurrentWorkingDirectory().getChildFile(argv[1]);
+            output.deleteFile();
             auto stream=output.createOutputStream(); require(stream!=nullptr,"screenshot output");
             require(juce::PNGImageFormat{}.writeImageToStream(image,*stream),"real editor screenshot");
-            restored.setStateInformation(saved.getData(),int(saved.getSize()));
         }
     }
     p.reset(); p.processBlock(audio,midi); require(audio.getMagnitude(0,512)==0,"host reset clears sound");

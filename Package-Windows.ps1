@@ -1,5 +1,17 @@
 param([switch]$SkipInstaller)
 $ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+function Write-PortableZip([string]$Source, [string]$Destination) {
+    $base = (Resolve-Path -LiteralPath $Source).Path.TrimEnd([IO.Path]::DirectorySeparatorChar)
+    if (Test-Path -LiteralPath $Destination) { Remove-Item -LiteralPath $Destination -Force }
+    $archive = [IO.Compression.ZipFile]::Open($Destination, [IO.Compression.ZipArchiveMode]::Create)
+    try {
+        Get-ChildItem -LiteralPath $base -File -Recurse -Force | ForEach-Object {
+            $entry = $_.FullName.Substring($base.Length + 1).Replace('\', '/')
+            [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive, $_.FullName, $entry, [IO.Compression.CompressionLevel]::Optimal) | Out-Null
+        }
+    } finally { $archive.Dispose() }
+}
 $root = $PSScriptRoot
 Set-Location $root
 $version = '0.1.0'
@@ -16,13 +28,13 @@ Copy-Item $module $stage -Recurse -Force
 Copy-Item (Join-Path $root 'README.md'), (Join-Path $root 'LICENSE') $stage -Force
 Copy-Item (Join-Path $root 'ThirdParty') $stage -Recurse -Force
 $portable = Join-Path $packages "KBass-$version-Windows-x64-VST3.zip"
-Compress-Archive -Path "$stage\*" -DestinationPath $portable -Force
+Write-PortableZip $stage $portable
 $source = Join-Path $packages 'KBass-Source.zip'
 git archive --format=zip --output=$source HEAD
 if ($LASTEXITCODE -ne 0) { throw 'Cannot archive the matching KBass source.' }
 $juceSource = Join-Path $root 'build\windows-x64\_deps\juce-src'
 if (!(Test-Path "$juceSource\LICENSE.md")) { throw 'Matching JUCE source is missing.' }
-Compress-Archive -Path "$juceSource\*" -DestinationPath (Join-Path $packages 'JUCE-8.0.6-Source.zip') -Force
+Write-PortableZip $juceSource (Join-Path $packages 'JUCE-8.0.6-Source.zip')
 if (!$SkipInstaller) {
     $compiler = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
     if (!(Test-Path $compiler)) { throw 'Install Inno Setup 6 before packaging the installer.' }

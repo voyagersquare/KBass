@@ -27,6 +27,19 @@ jobs:
         run: |
           & .\build\windows-x64\KBassProcessorTests.exe KBass-editor.png
           if ($LASTEXITCODE -ne 0) { throw 'Editor capture failed.' }
+      - name: Validate the Windows VST3 with pluginval level 5
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $archive = Join-Path $env:RUNNER_TEMP 'pluginval-1.0.4.zip'
+          Invoke-WebRequest 'https://github.com/Tracktion/pluginval/releases/download/v1.0.4/pluginval_Windows.zip' -OutFile $archive
+          if ((Get-FileHash $archive -Algorithm SHA256).Hash.ToLowerInvariant() -ne 'c08e61ce3b96db41636f8ec7e76f4c7e2c13ebdac7fa1b5a1f52b4f32ec715ab') { throw 'pluginval checksum mismatch.' }
+          $folder = Join-Path $env:RUNNER_TEMP 'pluginval-1.0.4'
+          Expand-Archive $archive $folder -Force
+          $validator = (Get-ChildItem $folder -Filter pluginval.exe -Recurse | Select-Object -First 1).FullName
+          $module = (Resolve-Path '.\build\windows-x64\KBass_artefacts\Release\VST3\KBass.vst3').Path
+          & $validator --strictness-level 5 --timeout-ms 60000 --output-dir '.\build\pluginval' --validate $module
+          if ($LASTEXITCODE -ne 0) { throw 'Windows VST3 validation failed.' }
       - name: Install pinned Inno Setup compiler
         shell: powershell
         run: |
@@ -54,6 +67,7 @@ jobs:
           if ($process.ExitCode -ne 0 -or (Test-Path $installed)) { throw 'VST3 uninstallation failed.' }
           @{ freshInstall=$true; installedModuleChecksum=$true; uninstall=$true; format='VST3'; version='0.1.0' } | ConvertTo-Json | Set-Content '.\build\packages\installer-test-results.json' -Encoding UTF8
           Copy-Item '.\KBass-editor.png' '.\build\packages\KBass-editor.png'
+          Copy-Item '.\build\pluginval\*.txt' '.\build\packages' -Force
           $lines = Get-ChildItem '.\build\packages' -File | Where-Object Name -ne 'SHA256SUMS.txt' | ForEach-Object { (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant() + '  ' + $_.Name }
           $lines | Set-Content '.\build\packages\SHA256SUMS.txt' -Encoding ASCII
       - name: Upload tested Windows packages
@@ -70,6 +84,7 @@ jobs:
           name: KBass-diagnostics
           path: |
             build/windows-x64/Testing/Temporary/LastTest.log
+            build/pluginval/*
             KBass-editor.png
           if-no-files-found: ignore
   release:
