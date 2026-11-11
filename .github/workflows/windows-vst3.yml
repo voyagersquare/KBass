@@ -17,6 +17,17 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
+      - name: Check Windows ZIP packaging before compiling
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          . .\Scripts\PortableZip.ps1
+          $probe = Join-Path $env:RUNNER_TEMP 'kbass-zip-probe.zip'
+          Write-PortableZip (Join-Path (Get-Location) '.github') $probe
+          $zip = [IO.Compression.ZipFile]::OpenRead($probe)
+          try {
+            if (!$zip.GetEntry('workflows/windows-vst3.yml')) { throw 'ZIP paths are not portable.' }
+          } finally { $zip.Dispose() }
       - name: Build VST3 and execute audio, state and editor tests
         shell: powershell
         run: |
